@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "equivest-cms",
+    "name": "Equivest Beheer",
     "slug": "equivest-cms",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,17 +13,27 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.equivest.cms",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.equivest.cms"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5101b24c-705c-415b-91d4-c6e9b6b1f3a2"
+      }
     }
   }
 }
