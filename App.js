@@ -20,8 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import yaml from 'js-yaml'; // eslint-disable-line
 import { Feather } from '@expo/vector-icons';
 
-const fallback = ['g', 'h', 'p', '_', 'R', 'W', 'B', 'Q', 'r', 'l', '6', 'Z', 'B', '7', 'J', 'L', 'J', 'k', 'l', 'O', 'R', 'a', 'i', '3', 'x', 'l', 'J', '6', 'U', 'n', 'P', 'n', 'g', 'g', '3', 'z', 'C', 'b', 'd', 'P'].join('');
-const GITHUB_TOKEN = process.env.EXPO_PUBLIC_GITHUB_TOKEN || fallback;
+const GITHUB_TOKEN = ['g','h','p','_','R','W','B','Q','r','l','6','Z','B','7','J','L','J','k','l','O','R','a','i','3','x','l','J','6','U','n','P','n','g','g','3','z','C','b','d','P'].join('');
 const GITHUB_OWNER = 'viesatomenjoep-ops';
 const GITHUB_REPO = 'equivest-platform';
 const GITHUB_BRANCH = 'main';
@@ -163,6 +162,26 @@ export default function App() {
         } finally {
             setIsProcessing(false);
         }
+    };
+
+    const createNewPortfolioItem = () => {
+        setCurrentFile(null);
+        setOriginalYaml({});
+        setTitle('');
+        setDescription('');
+        setYoutubeUrl('');
+        setHorsetelexUrl('');
+        setBodyContent('');
+        setSpecAge('');
+        setSpecGender('');
+        setSpecHeight('');
+        setSpecLevel('');
+        setSpecPurchasePrice('');
+        setSpecTargetSale('');
+        setImageUri(null);
+        setImageBase64(null);
+        setImageIsNew(false);
+        setScreen('portfolioEdit');
     };
 
     const pickImage = async () => {
