@@ -25,7 +25,7 @@ const GITHUB_OWNER = 'viesatomenjoep-ops';
 const GITHUB_REPO = 'equivest-platform';
 const GITHUB_BRANCH = 'main';
 
-const CONTENT_DIR = 'src/content/portfolio/en';
+
 const IMAGE_DIR = 'src/assets/images';
 const PUBLIC_IMAGE_PREFIX = '../../../assets/images';
 
@@ -76,6 +76,7 @@ const encodeUtf8B64 = (str) => {
 export default function App() {
     const [screen, setScreen] = useState('home'); // 'home' | 'portfolioList' | 'portfolioEdit' | 'textEdit'
     const [isProcessing, setIsProcessing] = useState(false);
+    const [portfolioLang, setPortfolioLang] = useState('nl'); // Standaard Nederlands
 
     // --- Portfolio State ---
     const [items, setItems] = useState([]);
@@ -114,7 +115,8 @@ export default function App() {
     const loadPortfolioList = async () => {
         setIsProcessing(true);
         try {
-            const data = await fetchFromGithub(CONTENT_DIR);
+            const currentDir = `src/content/portfolio/${portfolioLang}`;
+            const data = await fetchFromGithub(currentDir);
             setItems(data.filter(f => f.name.endsWith('.md')));
             setScreen('portfolioList');
         } catch (e) {
@@ -210,7 +212,7 @@ export default function App() {
 
             if (imageIsNew && imageBase64) {
                 const timestamp = new Date().getTime();
-                const slug = currentFile.name.replace('.md', '');
+                const slug = currentFile ? currentFile.name.replace('.md', '') : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
                 const imageFilename = `${slug}-${timestamp}.jpg`;
                 await uploadToGithub(`${IMAGE_DIR}/${imageFilename}`, `CMS: Foto geüpload: ${slug}`, imageBase64);
                 finalImageUrl = `${PUBLIC_IMAGE_PREFIX}/${imageFilename}`;
@@ -235,7 +237,10 @@ export default function App() {
             };
             const newMd = `---\n${yaml.dump(updatedYaml)}---\n\n${bodyContent}`;
 
-            await uploadToGithub(currentFile.path, `CMS: Paard '${title}' geüpdatet`, encodeUtf8B64(newMd), currentFile.sha);
+            const slug = currentFile ? currentFile.name.replace('.md', '') : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+            const targetPath = currentFile ? currentFile.path : `src/content/portfolio/${portfolioLang}/${slug}.md`;
+
+            await uploadToGithub(targetPath, `CMS: Paard '${title}' geüpdatet`, encodeUtf8B64(newMd), currentFile ? currentFile.sha : null);
 
             Alert.alert('Succes', `Live gezet op Vercel!`);
             loadPortfolioList();
@@ -305,7 +310,22 @@ export default function App() {
                         <Text style={styles.dashboardSubtitle}>Platform Beheer</Text>
                     </View>
 
-                    <View style={{ padding: 24 }}>
+                    <View style={styles.homeLangSelector}>
+                        <Text style={styles.homeLangTitle}>Selecteer Huidige Bewerkings Taal:</Text>
+                        <View style={styles.langSelectorRow}>
+                            {[{ code: 'nl', label: '🇳🇱 NL' }, { code: 'en', label: '🇬🇧 EN' }, { code: 'de', label: '🇩🇪 DE' }, { code: 'es', label: '🇪🇸 ES' }].map(lang => (
+                                <TouchableOpacity 
+                                    key={lang.code} 
+                                    style={[styles.homeLangBtn, portfolioLang === lang.code && styles.homeLangBtnActive]} 
+                                    onPress={() => setPortfolioLang(lang.code)}
+                                >
+                                    <Text style={[styles.homeLangText, portfolioLang === lang.code && styles.homeLangTextActive]}>{lang.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+
+                    <View style={{ padding: 24, paddingTop: 12 }}>
                         <TouchableOpacity style={styles.dashCard} onPress={loadPortfolioList}>
                             <LinearGradient colors={['#1A202C', '#2D3748']} style={styles.dashCardGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                                 <View style={styles.dashCardIcon}><Feather name="book-open" color="#FFF" size={28} /></View>
@@ -561,4 +581,12 @@ const styles = StyleSheet.create({
     textEditItem: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0' },
     textEditKey: { fontSize: 11, fontWeight: '800', color: '#718096', marginBottom: 8 },
     textEditInput: { fontSize: 15, color: '#1A202C', lineHeight: 22, backgroundColor: '#F7FAFC', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#EDF2F7' },
+
+    homeLangSelector: { marginHorizontal: 24, marginBottom: 4, marginTop: -10 },
+    homeLangTitle: { fontSize: 12, fontWeight: '800', color: '#718096', textTransform: 'uppercase', marginBottom: 10 },
+    langSelectorRow: { flexDirection: 'row', backgroundColor: '#FFF', borderRadius: 12, padding: 6, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
+    homeLangBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
+    homeLangBtnActive: { backgroundColor: '#EBF8FF' },
+    homeLangText: { fontSize: 14, fontWeight: '700', color: '#A0AEC0' },
+    homeLangTextActive: { color: '#3182CE' },
 });
