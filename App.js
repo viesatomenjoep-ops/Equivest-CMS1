@@ -20,7 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import yaml from 'js-yaml'; // eslint-disable-line
 import { Feather } from '@expo/vector-icons';
 
-const GITHUB_TOKEN = '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';
+const GITHUB_TOKEN = process.env.EXPO_PUBLIC_GITHUB_TOKEN || '';
 const GITHUB_OWNER = 'viesatomenjoep-ops';
 const GITHUB_REPO = 'equivest-platform';
 const GITHUB_BRANCH = 'main';
@@ -292,6 +292,16 @@ export default function App() {
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.dashCardTitle}>Paarden Portfolio</Text>
                                     <Text style={styles.dashCardDesc}>Wijzig specificaties, foto's en details van de collectie.</Text>
+                                </View>
+                            </LinearGradient>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.dashCard} onPress={createNewPortfolioItem}>
+                            <LinearGradient colors={['#3182ce', '#2b6cb0']} style={styles.dashCardGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                                <View style={[styles.dashCardIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}><Feather name="plus" color="#FFF" size={28} /></View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.dashCardTitle}>Nieuw Paard Toevoegen</Text>
+                                    <Text style={[styles.dashCardDesc, { color: '#EBF8FF' }]}>Maak direct een compleet nieuwe advertentie aan.</Text>
                                 </View>
                             </LinearGradient>
                         </TouchableOpacity>
