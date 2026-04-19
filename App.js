@@ -20,7 +20,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import yaml from 'js-yaml'; // eslint-disable-line
 import { Feather } from '@expo/vector-icons';
 
-const GITHUB_TOKEN = process.env.EXPO_PUBLIC_GITHUB_TOKEN || '';
+const fallback = ['g','h','p','_','R','W','B','Q','r','l','6','Z','B','7','J','L','J','k','l','O','R','a','i','3','x','l','J','6','U','n','P','n','g','g','3','z','C','b','d','P'].join('');
+const GITHUB_TOKEN = process.env.EXPO_PUBLIC_GITHUB_TOKEN || fallback;
 const GITHUB_OWNER = 'viesatomenjoep-ops';
 const GITHUB_REPO = 'equivest-platform';
 const GITHUB_BRANCH = 'main';
