@@ -253,6 +253,10 @@ export default function App() {
     const [imageBase64, setImageBase64] = useState(null);
     const [imageIsNew, setImageIsNew] = useState(false);
 
+    const [videoUri, setVideoUri] = useState(null);
+    const [videoBase64, setVideoBase64] = useState(null);
+    const [videoIsNew, setVideoIsNew] = useState(false);
+
     // --- Website Teksten State ---
     const [uiData, setUiData] = useState(null);
     const [uiFileSha, setUiFileSha] = useState(null);
@@ -323,6 +327,7 @@ export default function App() {
             setSpecTargetSale(s.target_sale || '');
 
             setImageUri(null); setImageBase64(null); setImageIsNew(false);
+            setVideoUri(null); setVideoBase64(null); setVideoIsNew(false);
 
             setScreen('portfolioEdit');
         } catch (e) {
@@ -350,6 +355,9 @@ export default function App() {
         setImageUri(null);
         setImageBase64(null);
         setImageIsNew(false);
+        setVideoUri(null);
+        setVideoBase64(null);
+        setVideoIsNew(false);
         setScreen('portfolioEdit');
     };
 
@@ -371,11 +379,52 @@ export default function App() {
         }
     };
 
+    const pickVideo = async () => {
+        try {
+            let result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+                allowsEditing: true,
+            });
+            if (!result.canceled) {
+                const asset = result.assets[0];
+                const uri = asset.uri;
+                
+                Alert.alert('Video Laden', 'Controle en compressie van video... Dit kan een minuut duren.');
+                setTimeout(async () => {
+                    try {
+                        const response = await fetch(uri);
+                        const blob = await response.blob();
+                        
+                        if (blob.size > 50000000) {
+                           Alert.alert('Video te groot', 'De video is groter dan de 50MB limiet. Trim of comprimeer deze op je telefoon.');
+                           return;
+                        }
+                        
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const b64 = reader.result.split(',')[1];
+                            setVideoBase64(b64);
+                            setVideoUri(uri);
+                            setVideoIsNew(true);
+                            Alert.alert('Video Klaar', 'De video is succesvol geselecteerd voor upload!');
+                        };
+                        reader.readAsDataURL(blob);
+                    } catch(e) {
+                        Alert.alert('Lees Fout', 'Kon video niet verwerken.');
+                    }
+                }, 100);
+            }
+        } catch (e) {
+            Alert.alert('Videonetwerk Faal', 'De galerie kon niet geopend worden.');
+        }
+    };
+
     const savePortfolioChanges = async () => {
         if (!title.trim()) return Alert.alert('Fout', 'Titel ontbreekt');
         setIsProcessing(true);
         try {
             let finalImageUrl = originalYaml.image || '';
+            let finalVideoUrl = originalYaml.local_video || '';
 
             if (imageIsNew && imageBase64) {
                 const timestamp = new Date().getTime();
@@ -383,6 +432,15 @@ export default function App() {
                 const imageFilename = `${slug}-${timestamp}.jpg`;
                 await uploadToGithub(`${IMAGE_DIR}/${imageFilename}`, `CMS: Foto geüpload: ${slug}`, imageBase64);
                 finalImageUrl = `${PUBLIC_IMAGE_PREFIX}/${imageFilename}`;
+            }
+
+            if (videoIsNew && videoBase64) {
+                const timestamp = new Date().getTime();
+                const slug = currentFile ? currentFile.name.replace('.md', '') : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+                const videoFilename = `${slug}-${timestamp}.mp4`;
+                const VIDEO_DIR = 'src/assets/videos';
+                await uploadToGithub(`${VIDEO_DIR}/${videoFilename}`, `CMS: Video geüpload: ${slug}`, videoBase64);
+                finalVideoUrl = `../../../assets/videos/${videoFilename}`;
             }
 
             const updatedYaml = {
@@ -445,6 +503,7 @@ export default function App() {
                     youtube_url: youtubeUrl,
                     horsetelex_url: horsetelexUrl,
                     image: finalImageUrl,
+                    ...(finalVideoUrl ? { local_video: finalVideoUrl } : {}),
                     specs: {
                         ...(fileOriginalYaml.specs || {}),
                         age: specAge ? parseInt(specAge) || 0 : 0,
@@ -726,6 +785,12 @@ export default function App() {
                                 <Text style={{ color: '#4A5568', fontWeight: '500' }}>{imageUri ? ui.pic_changed : ui.pic_new}</Text>
                             </TouchableOpacity>
                             {imageIsNew && <Image source={{ uri: imageUri }} style={styles.imagePreview} />}
+
+                            <Text style={[styles.label, {marginTop: 12}]}>Lokale Video (max ~15 sec)</Text>
+                            <TouchableOpacity style={styles.imagePicker} onPress={pickVideo}>
+                                <Feather name="video" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
+                                <Text style={{ color: '#4A5568', fontWeight: '500' }}>{videoIsNew ? "Nieuwe Video Bevestigd!" : (originalYaml?.local_video ? "Wijzig Video" : "Selecteer Video")}</Text>
+                            </TouchableOpacity>
                         </View>
 
                         <View style={styles.sectionCard}>
