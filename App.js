@@ -61,6 +61,21 @@ const uploadToGithub = async (path, message, contentBase64, sha = null) => {
     return await response.json();
 };
 
+const deleteFromGithub = async (path, message, sha) => {
+    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`;
+    const bodyObj = { message, sha, branch: GITHUB_BRANCH };
+    const response = await fetch(url, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyObj),
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Github Delete API Fout');
+    }
+    return await response.json();
+};
+
 const decodeUtf8B64 = (b64) => {
     try { return decodeURIComponent(escape(atob(b64))); }
     catch { return atob(b64); }
@@ -266,6 +281,47 @@ export default function App() {
         } finally {
             setIsProcessing(false);
         }
+    };
+
+    const deletePortfolioItem = async () => {
+        if (!currentFile) return;
+
+        Alert.alert(
+            'Paard Verwijderen',
+            `Weet je zeker dat je ${title || 'dit paard'} wilt verwijderen? Dit wordt direct verwijderd van de live website.`,
+            [
+                { text: 'Annuleren', style: 'cancel' },
+                { text: 'Verwijder Definitief', style: 'destructive', onPress: async () => {
+                    setIsProcessing(true);
+                    try {
+                        const slug = currentFile.name.replace('.md', '');
+                        const langs = ['nl', 'en', 'de', 'es'];
+                        for (const lang of langs) {
+                            const targetPath = `src/content/portfolio/${lang}/${slug}.md`;
+                            try {
+                                const fileData = await fetchFromGithub(targetPath);
+                                await deleteFromGithub(targetPath, `CMS: Paard '${title}' verwijderd (${lang})`, fileData.sha);
+                            } catch (e) {
+                                // Bestand bestaat niet in deze taal
+                            }
+                        }
+
+                        // Trigger Vercel Deploy Hook
+                        try {
+                            await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST' });
+                        } catch (e) {}
+
+                        Alert.alert('Verwijderd', `Correct verwijderd! Vercel is nu aan het bouwen en over ca. 60 seconden is het verdwenen van de website.`);
+                        setScreen('portfolioList');
+                        loadPortfolioList();
+                    } catch(e) {
+                        Alert.alert('Fout bij Verwijderen', e.message);
+                    } finally {
+                        setIsProcessing(false);
+                    }
+                }}
+            ]
+        );
     };
 
     // ==========================================
@@ -494,6 +550,12 @@ export default function App() {
                         <TouchableOpacity style={styles.publishBtn} onPress={savePortfolioChanges} disabled={isProcessing}>
                             {isProcessing ? <ActivityIndicator color="#fff" /> : <><Feather name="check" color="#fff" size={20} /><Text style={styles.publishBtnText}>Opslaan & Naar Vercel</Text></>}
                         </TouchableOpacity>
+
+                        {currentFile && (
+                            <TouchableOpacity style={[styles.publishBtn, { backgroundColor: '#E53E3E', marginTop: 12 }]} onPress={deletePortfolioItem} disabled={isProcessing}>
+                                {isProcessing ? <ActivityIndicator color="#fff" /> : <><Feather name="trash-2" color="#fff" size={20} /><Text style={styles.publishBtnText}>Verwijder Advertentie</Text></>}
+                            </TouchableOpacity>
+                        )}
                     </ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
