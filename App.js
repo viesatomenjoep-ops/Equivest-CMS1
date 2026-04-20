@@ -749,7 +749,7 @@ export default function App() {
     const addIgUrl = () => {
         if (!newIgUrl.trim()) return Alert.alert("Fout", "Vul een geldige Instagram link in.");
         
-        let idMatches = newIgUrl.match(/(?:(?:http|https):\/\/)?(?:www\.)?(?:instagram\.com|instagr\.am)\/(?:p|reel|tv)\/([a-zA-Z0-9_-]+)/i);
+        let idMatches = newIgUrl.match(/(?:(?:http|https):\/\/)?(?:www\.)?(?:instagram\.com|instagr\.am)\/(?:p|reels?|tv|stories\/[^/]+)\/([a-zA-Z0-9_-]+)/i);
         let finalId = newIgUrl.trim();
 
         if (idMatches && idMatches[1]) {
