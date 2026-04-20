@@ -737,10 +737,10 @@ export default function App() {
             const contentStr = decodeUtf8B64(data.content);
             const parsedJson = JSON.parse(contentStr);
             
-            // Revert back to plain string IDs if they are objects
+            // Map alles naar {id, title} objecten
             const migratedData = (parsedJson || []).map(item => {
-                if (typeof item === 'object') return item.id;
-                return item;
+                if (typeof item === 'string') return { id: item, title: '' };
+                return { id: item.id || item, title: item.title || '' };
             });
 
             setIgData(migratedData);
@@ -765,16 +765,26 @@ export default function App() {
             return Alert.alert("Fout", "Dit lijkt geen geldige Instagram Post of Reel link. Kopieer de link vanuit de Insta app.");
         }
 
-        if (igData.includes(finalId)) {
+        if (igData.some(item => (item.id || item) === finalId)) {
             return Alert.alert("Fout", "Deze Story staat al in de lijst!");
         }
 
-        setIgData([finalId, ...igData]);
+        setIgData([{ id: finalId, title: "Nieuwe Referentie" }, ...igData]);
         setNewIgUrl('');
     };
 
+    const updateIgTitle = (idToUpdate, newTitle) => {
+        setIgData(prev => prev.map(item => {
+            const currentId = item.id || item;
+            if (currentId === idToUpdate) {
+                return { id: currentId, title: newTitle };
+            }
+            return item;
+        }));
+    };
+
     const removeIgUrl = (idToRemove) => {
-        setIgData(prev => prev.filter(item => item !== idToRemove));
+        setIgData(prev => prev.filter(item => (item.id || item) !== idToRemove));
     };
 
     const saveIgChanges = async () => {
@@ -1143,37 +1153,53 @@ export default function App() {
                     <FlatList
                         keyboardShouldPersistTaps="handled"
                         data={igData}
-                        keyExtractor={(item, index) => item + index}
+                        keyExtractor={(item, index) => (item.id || item) + '-' + index}
                         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60 }}
-                        renderItem={({ item }) => (
-                            <View style={[styles.listItem, { flexDirection: 'column', alignItems: 'stretch' }]}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                                        <View style={{ backgroundColor: '#FDF2E9', padding: 10, borderRadius: 10 }}>
-                                            <Feather name="instagram" color="#F58529" size={20} />
+                        renderItem={({ item }) => {
+                            const isObj = typeof item === 'object';
+                            const itemId = isObj ? item.id : item;
+                            const itemTitle = isObj && item.title ? item.title : '';
+
+                            return (
+                                <View style={[styles.listItem, { flexDirection: 'column', alignItems: 'stretch' }]}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                            <View style={{ backgroundColor: '#FDF2E9', padding: 10, borderRadius: 10 }}>
+                                                <Feather name="instagram" color="#F58529" size={20} />
+                                            </View>
+                                            <Text style={{ fontSize: 13, color: '#A0AEC0', marginLeft: 16 }}>https://instagram.com/p/{itemId}</Text>
                                         </View>
-                                        <Text style={{ fontSize: 13, color: '#A0AEC0', marginLeft: 16 }}>https://instagram.com/p/{item}</Text>
+                                        <TouchableOpacity onPress={() => removeIgUrl(itemId)} style={{ padding: 10, backgroundColor: '#FFF5F5', borderRadius: 8 }}>
+                                            <Feather name="trash-2" color="#E53E3E" size={18} />
+                                        </TouchableOpacity>
                                     </View>
-                                    <TouchableOpacity onPress={() => removeIgUrl(item)} style={{ padding: 10, backgroundColor: '#FFF5F5', borderRadius: 8 }}>
-                                        <Feather name="trash-2" color="#E53E3E" size={18} />
-                                    </TouchableOpacity>
+
+                                    <View style={{ marginTop: 5, marginBottom: 10 }}>
+                                        <TextInput 
+                                            style={[styles.input, { marginBottom: 0, backgroundColor: '#EDF2F7', borderWidth: 0 }]} 
+                                            value={itemTitle} 
+                                            onChangeText={(text) => updateIgTitle(itemId, text)} 
+                                            placeholder="Naam van de advertentie/referentie..." 
+                                            placeholderTextColor="#A0AEC0"
+                                        />
+                                    </View>
+                                    
+                                    {Platform.OS === 'web' && (
+                                        <View style={{ marginTop: 5, borderRadius: 16, overflow: 'hidden', backgroundColor: '#F7FAFC' }}>
+                                            <iframe 
+                                                src={`https://www.instagram.com/p/${itemId}/embed/captioned`} 
+                                                width="100%" 
+                                                height="420" 
+                                                frameBorder="0" 
+                                                scrolling="no" 
+                                                allowTransparency="true"
+                                                style={{ border: 'none', background: 'transparent' }}
+                                            ></iframe>
+                                        </View>
+                                    )}
                                 </View>
-                                
-                                {Platform.OS === 'web' && (
-                                    <View style={{ marginTop: 10, borderRadius: 16, overflow: 'hidden', backgroundColor: '#F7FAFC' }}>
-                                        <iframe 
-                                            src={`https://www.instagram.com/p/${item}/embed/captioned`} 
-                                            width="100%" 
-                                            height="420" 
-                                            frameBorder="0" 
-                                            scrolling="no" 
-                                            allowTransparency="true"
-                                            style={{ border: 'none', background: 'transparent' }}
-                                        ></iframe>
-                                    </View>
-                                )}
-                            </View>
-                        )}
+                            );
+                        }}
                         ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40, color: '#a0aec0' }}>Geen Stories gekoppeld.</Text>}
                     />
                 </KeyboardAvoidingView>
