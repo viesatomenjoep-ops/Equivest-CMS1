@@ -301,7 +301,6 @@ export default function App() {
     const [igData, setIgData] = useState([]);
     const [igFileSha, setIgFileSha] = useState(null);
     const [newIgUrl, setNewIgUrl] = useState('');
-    const [newIgTitle, setNewIgTitle] = useState('');
 
     // ==========================================
     // VIEW: PORTFOLIO
@@ -738,9 +737,9 @@ export default function App() {
             const contentStr = decodeUtf8B64(data.content);
             const parsedJson = JSON.parse(contentStr);
             
-            // Migreer strings naar objecten als dat nodig is
+            // Revert back to plain string IDs if they are objects
             const migratedData = (parsedJson || []).map(item => {
-                if (typeof item === 'string') return { id: item, title: '' };
+                if (typeof item === 'object') return item.id;
                 return item;
             });
 
@@ -766,21 +765,16 @@ export default function App() {
             return Alert.alert("Fout", "Dit lijkt geen geldige Instagram Post of Reel link. Kopieer de link vanuit de Insta app.");
         }
 
-        if (igData.some(item => item.id === finalId || item === finalId)) {
+        if (igData.includes(finalId)) {
             return Alert.alert("Fout", "Deze Story staat al in de lijst!");
         }
 
-        const newEntry = { id: finalId, title: newIgTitle.trim() };
-        setIgData([newEntry, ...igData]);
+        setIgData([finalId, ...igData]);
         setNewIgUrl('');
-        setNewIgTitle('');
     };
 
     const removeIgUrl = (idToRemove) => {
-        setIgData(prev => prev.filter(item => {
-            const currentId = typeof item === 'object' ? item.id : item;
-            return currentId !== idToRemove;
-        }));
+        setIgData(prev => prev.filter(item => item !== idToRemove));
     };
 
     const saveIgChanges = async () => {
@@ -1133,23 +1127,15 @@ export default function App() {
 
                     <View style={{ padding: 20 }}>
                         <Text style={styles.label}>Nieuwe Story Toevoegen</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
                             <TextInput 
                                 style={[styles.input, { flex: 1, marginBottom: 0, marginRight: 10 }]} 
                                 value={newIgUrl} 
                                 onChangeText={setNewIgUrl} 
                                 placeholder="Plak Instagram Link of ID..." 
                             />
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-                            <TextInput 
-                                style={[styles.input, { flex: 1, marginBottom: 0, marginRight: 10 }]} 
-                                value={newIgTitle} 
-                                onChangeText={setNewIgTitle} 
-                                placeholder="Korte Omschrijving (Optioneel)" 
-                            />
-                            <TouchableOpacity style={{ backgroundColor: '#F58529', padding: 14, borderRadius: 10, paddingHorizontal: 20 }} onPress={addIgUrl}>
-                                <Text style={{ color: 'white', fontWeight: 'bold' }}>Toevoegen</Text>
+                            <TouchableOpacity style={{ backgroundColor: '#F58529', padding: 14, borderRadius: 10 }} onPress={addIgUrl}>
+                                <Feather name="plus" color="#FFF" size={20} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -1157,28 +1143,37 @@ export default function App() {
                     <FlatList
                         keyboardShouldPersistTaps="handled"
                         data={igData}
-                        keyExtractor={(item, index) => (item.id || item) + index}
+                        keyExtractor={(item, index) => item + index}
                         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60 }}
-                        renderItem={({ item }) => {
-                            const isObj = typeof item === 'object';
-                            const itemId = isObj ? item.id : item;
-                            const itemTitle = isObj && item.title ? item.title : itemId;
-                            
-                            return (
-                                <View style={styles.listItem}>
-                                    <View style={{ backgroundColor: '#FDF2E9', padding: 10, borderRadius: 10 }}>
-                                        <Feather name="instagram" color="#F58529" size={20} />
+                        renderItem={({ item }) => (
+                            <View style={[styles.listItem, { flexDirection: 'column', alignItems: 'stretch' }]}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                        <View style={{ backgroundColor: '#FDF2E9', padding: 10, borderRadius: 10 }}>
+                                            <Feather name="instagram" color="#F58529" size={20} />
+                                        </View>
+                                        <Text style={{ fontSize: 13, color: '#A0AEC0', marginLeft: 16 }}>https://instagram.com/p/{item}</Text>
                                     </View>
-                                    <View style={{ flex: 1, marginLeft: 16 }}>
-                                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A202C' }}>{itemTitle}</Text>
-                                        <Text style={{ fontSize: 12, color: '#A0AEC0' }}>https://instagram.com/p/{itemId}</Text>
-                                    </View>
-                                    <TouchableOpacity onPress={() => removeIgUrl(itemId)} style={{ padding: 10 }}>
-                                        <Feather name="trash-2" color="#E53E3E" size={20} />
+                                    <TouchableOpacity onPress={() => removeIgUrl(item)} style={{ padding: 10, backgroundColor: '#FFF5F5', borderRadius: 8 }}>
+                                        <Feather name="trash-2" color="#E53E3E" size={18} />
                                     </TouchableOpacity>
                                 </View>
-                            );
-                        }}
+                                
+                                {Platform.OS === 'web' && (
+                                    <View style={{ marginTop: 10, borderRadius: 16, overflow: 'hidden', backgroundColor: '#F7FAFC' }}>
+                                        <iframe 
+                                            src={`https://www.instagram.com/p/${item}/embed/captioned`} 
+                                            width="100%" 
+                                            height="420" 
+                                            frameBorder="0" 
+                                            scrolling="no" 
+                                            allowTransparency="true"
+                                            style={{ border: 'none', background: 'transparent' }}
+                                        ></iframe>
+                                    </View>
+                                )}
+                            </View>
+                        )}
                         ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40, color: '#a0aec0' }}>Geen Stories gekoppeld.</Text>}
                     />
                 </KeyboardAvoidingView>
