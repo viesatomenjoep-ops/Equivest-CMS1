@@ -826,7 +826,7 @@ export default function App() {
                         </View>
                     </View>
 
-                    <View style={{ padding: 24, paddingTop: 12 }}>
+                    <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 12, paddingBottom: 60 }}>
                         <TouchableOpacity style={styles.dashCard} onPress={loadPortfolioList}>
                             <LinearGradient colors={['#1A202C', '#2D3748']} style={styles.dashCardGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                                 <View style={styles.dashCardIcon}><Feather name="book-open" color="#FFF" size={28} /></View>
@@ -866,7 +866,7 @@ export default function App() {
                                 </View>
                             </LinearGradient>
                         </TouchableOpacity>
-                    </View>
+                    </ScrollView>
 
                     {isProcessing && <ActivityIndicator color="#1A202C" size="large" style={{ marginTop: 40 }} />}
                 </SafeAreaView>
