@@ -227,7 +227,7 @@ export default function App() {
                 image: finalImageUrl,
                 specs: {
                     ...(originalYaml.specs || {}),
-                    age: parseInt(specAge) || specAge,
+                    age: specAge ? parseInt(specAge) || 0 : 0,
                     gender: specGender,
                     height: specHeight,
                     level: specLevel,
