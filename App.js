@@ -40,8 +40,8 @@ const UI = {
         new_desc: "Maak direct een compleet nieuwe advertentie aan.",
         texts_title: "Website Teksten",
         texts_desc: "Vertaal en beheer alle overige teksten op de website.",
-        ig_title: "Equivest Stories",
-        ig_desc: "Upload exclusieve, snelle succesverhalen direct naar de server.",
+        ig_title: "Instagram Stories",
+        ig_desc: "Koppel succesverhalen aan je references pagina.",
         back: "Terug",
         db: "Portfolio Database",
         edit: "Bewerken",
@@ -74,8 +74,8 @@ const UI = {
         new_desc: "Create a brand new advertisement instantly.",
         texts_title: "Website Texts",
         texts_desc: "Translate and manage all other texts on the website.",
-        ig_title: "Equivest Stories",
-        ig_desc: "Upload exclusive short success stories natively.",
+        ig_title: "Instagram Stories",
+        ig_desc: "Link success stories to the references page.",
         back: "Back",
         db: "Portfolio Database",
         edit: "Edit",
@@ -108,8 +108,8 @@ const UI = {
         new_desc: "Erstellen Sie sofort eine neue Anzeige.",
         texts_title: "Website-Texte",
         texts_desc: "Übersetzen und verwalten Sie andere Website-Texte.",
-        ig_title: "Equivest Stories",
-        ig_desc: "Laden Sie exklusive Erfolgsgeschichten direkt hoch.",
+        ig_title: "Instagram Stories",
+        ig_desc: "Verlinken Sie Erfolgsgeschichten auf der References-Seite.",
         back: "Zurück",
         db: "Portfolio Datenbank",
         edit: "Bearbeiten",
@@ -142,8 +142,8 @@ const UI = {
         new_desc: "Cree un nuevo anuncio instantáneamente.",
         texts_title: "Textos del Sitio Web",
         texts_desc: "Traduzca y gestione textos del sitio web.",
-        ig_title: "Equivest Stories",
-        ig_desc: "Sube historias de éxito exclusivas y rápidas.",
+        ig_title: "Instagram Stories",
+        ig_desc: "Vincule historias de éxito a la página de references.",
         back: "Volver",
         db: "Base de Datos",
         edit: "Editar",
@@ -728,90 +728,61 @@ export default function App() {
     };
 
     // ==========================================
-    // VIEW: EQUIVEST STORIES
+    // VIEW: INSTAGRAM STORIES
     // ==========================================
-    const openStoryEditor = async () => {
+    const openIgEditor = async () => {
         setIsProcessing(true);
         try {
-            const data = await fetchFromGithub('src/data/stories.json');
+            const data = await fetchFromGithub('src/data/instagram.json');
             const contentStr = decodeUtf8B64(data.content);
             const parsedJson = JSON.parse(contentStr);
             setIgData(parsedJson || []);
             setIgFileSha(data.sha);
             setScreen('igEdit');
         } catch (e) {
-            Alert.alert('Fout', "stories.json kon niet geladen worden. " + e.message);
+            Alert.alert('Fout', "instagram.json kon niet geladen worden. " + e.message);
         } finally {
             setIsProcessing(false);
         }
     };
 
-    const pickStoryVideo = async () => {
-        let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-            allowsEditing: true,
-            quality: 0.8,
-            base64: true,
-        });
+    const addIgUrl = () => {
+        if (!newIgUrl.trim()) return Alert.alert("Fout", "Vul een geldige Instagram link in.");
+        
+        let idMatches = newIgUrl.match(/(?:(?:http|https):\/\/)?(?:www\.)?(?:instagram\.com|instagr\.am)\/(?:p|reel|tv)\/([a-zA-Z0-9_-]+)/i);
+        let finalId = newIgUrl.trim();
 
-        if (!result.canceled && result.assets && result.assets.length > 0) {
-            const base64Data = result.assets[0].base64;
-            const approxSizeMB = (base64Data.length * 0.75) / (1024 * 1024);
-            if (approxSizeMB > 50) {
-                Alert.alert('Video te groot', `Deze video is ~${Math.round(approxSizeMB)}MB. Maximaal is 50MB.`);
-                return;
-            }
-
-            const newId = `story_${Date.now()}`;
-            const newFilename = `${newId}.mp4`;
-            const publicPath = `../../../videos/stories/${newFilename}`;
-
-            const newStoryItem = {
-                id: newId,
-                url: publicPath,
-                base64: base64Data, // Tijdelijk opslaan in state voor de Save functie
-                isNew: true
-            };
-
-            setIgData([newStoryItem, ...igData]);
+        if (idMatches && idMatches[1]) {
+            finalId = idMatches[1];
+        } else if (newIgUrl.includes('/')) {
+            return Alert.alert("Fout", "Dit lijkt geen geldige Instagram Post of Reel link. Kopieer de link vanuit de Insta app.");
         }
+
+        if (igData.includes(finalId)) {
+            return Alert.alert("Fout", "Deze Story staat al in de lijst!");
+        }
+
+        setIgData([finalId, ...igData]);
+        setNewIgUrl('');
     };
 
-    const removeStory = (idToRemove) => {
-        setIgData(prev => prev.filter(item => item.id !== idToRemove));
+    const removeIgUrl = (idToRemove) => {
+        setIgData(prev => prev.filter(id => id !== idToRemove));
     };
 
-    const saveStories = async () => {
+    const saveIgChanges = async () => {
         setIsProcessing(true);
         try {
-            // 1. Upload alle nieuwe video's naar GitHub
-            const cleanIgData = [];
-            for (const item of igData) {
-                if (item.isNew && item.base64) {
-                    const gitPath = `public/videos/stories/${item.id}.mp4`;
-                    await uploadToGithub(gitPath, `CMS: Uploaded Equivest Story ${item.id}`, item.base64);
-                }
-                
-                // Voeg toe aan clean data (zonder base64)
-                cleanIgData.push({ id: item.id, url: item.url });
-            }
-
-            // 2. Sla src/data/stories.json op
-            const jsonString = JSON.stringify(cleanIgData, null, 2);
-            await uploadToGithub('src/data/stories.json', `CMS: Equivest Stories geüpdatet`, encodeUtf8B64(jsonString), igFileSha);
-            
+            const jsonString = JSON.stringify(igData, null, 2);
+            await uploadToGithub('src/data/instagram.json', `CMS: Instagram Stories geüpdatet`, encodeUtf8B64(jsonString), igFileSha);
             try {
                 await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST' });
             } catch (e) {}
             
             Alert.alert('Succes', 'Jouw nieuwe Stories staan over ca. 60 seconden live op de website!');
             
-            const data = await fetchFromGithub('src/data/stories.json');
+            const data = await fetchFromGithub('src/data/instagram.json');
             setIgFileSha(data.sha);
-            
-            // Verwijder de "isNew" flag uit state
-            setIgData(cleanIgData);
-
         } catch (e) {
             Alert.alert('Fout', e.message);
         } finally {
@@ -1134,44 +1105,49 @@ export default function App() {
         );
     }
 
-    // --- EQUIVEST STORIES ---
+    // --- INSTAGRAM STORIES ---
     if (screen === 'igEdit') {
         return (
             <SafeAreaView style={styles.safeAreaList}>
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
                     <View style={styles.subHeader}>
                         <TouchableOpacity onPress={() => setScreen('home')}><Feather name="arrow-left" color="#1A202C" size={26} /></TouchableOpacity>
-                        <Text style={styles.subHeaderTitle}>Equivest Stories</Text>
-                        <TouchableOpacity onPress={saveStories} disabled={isProcessing}>
+                        <Text style={styles.subHeaderTitle}>Instagram Stories</Text>
+                        <TouchableOpacity onPress={saveIgChanges} disabled={isProcessing}>
                             {isProcessing ? <ActivityIndicator size="small" /> : <Text style={{ color: '#F58529', fontWeight: '700' }}>Opslaan</Text>}
                         </TouchableOpacity>
                     </View>
 
                     <View style={{ padding: 20 }}>
-                        <Text style={styles.label}>Nieuwe Story Video Toevoegen (max ~50MB)</Text>
-                        <TouchableOpacity style={styles.imagePicker} onPress={pickStoryVideo}>
-                            <Feather name="video" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
-                            <Text style={{ color: '#4A5568', fontWeight: '500' }}>Selecteer Video vanaf Filmrol</Text>
-                        </TouchableOpacity>
+                        <Text style={styles.label}>Nieuwe Story Toevoegen</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                            <TextInput 
+                                style={[styles.input, { flex: 1, marginBottom: 0, marginRight: 10 }]} 
+                                value={newIgUrl} 
+                                onChangeText={setNewIgUrl} 
+                                placeholder="Plak Instagram Link of ID..." 
+                            />
+                            <TouchableOpacity style={{ backgroundColor: '#F58529', padding: 14, borderRadius: 10 }} onPress={addIgUrl}>
+                                <Feather name="plus" color="#FFF" size={20} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     <FlatList
                         keyboardShouldPersistTaps="handled"
                         data={igData}
-                        keyExtractor={(item) => item.id}
+                        keyExtractor={(item, index) => item + index}
                         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60 }}
                         renderItem={({ item }) => (
                             <View style={styles.listItem}>
                                 <View style={{ backgroundColor: '#FDF2E9', padding: 10, borderRadius: 10 }}>
-                                    <Feather name="video" color="#F58529" size={20} />
+                                    <Feather name="instagram" color="#F58529" size={20} />
                                 </View>
                                 <View style={{ flex: 1, marginLeft: 16 }}>
-                                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A202C' }}>{item.id}</Text>
-                                    <Text style={{ fontSize: 12, color: item.isNew ? '#38A169' : '#A0AEC0', fontWeight: item.isNew ? 'bold' : 'normal' }}>
-                                        {item.isNew ? '📍 Nieuw! Bevestig met Opslaan' : item.url}
-                                    </Text>
+                                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A202C' }}>{item}</Text>
+                                    <Text style={{ fontSize: 12, color: '#A0AEC0' }}>https://instagram.com/p/{item}</Text>
                                 </View>
-                                <TouchableOpacity onPress={() => removeStory(item.id)} style={{ padding: 10 }}>
+                                <TouchableOpacity onPress={() => removeIgUrl(item)} style={{ padding: 10 }}>
                                     <Feather name="trash-2" color="#E53E3E" size={20} />
                                 </TouchableOpacity>
                             </View>
