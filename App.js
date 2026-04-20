@@ -301,7 +301,6 @@ export default function App() {
     const [igData, setIgData] = useState([]);
     const [igFileSha, setIgFileSha] = useState(null);
     const [newIgUrl, setNewIgUrl] = useState('');
-    const [newIgDate, setNewIgDate] = useState(new Date().toISOString().split('T')[0]);
 
     // ==========================================
     // VIEW: PORTFOLIO
@@ -737,17 +736,7 @@ export default function App() {
             const data = await fetchFromGithub('src/data/instagram.json');
             const contentStr = decodeUtf8B64(data.content);
             const parsedJson = JSON.parse(contentStr);
-
-            // Migratie van oude v.s. nieuwe structuur
-            const migratedData = (parsedJson || []).map(item => {
-                if (typeof item === 'string') return { id: item, date: new Date().toISOString().split('T')[0] };
-                return item;
-            });
-
-            // Sorteer op datum nieuwste eerst
-            migratedData.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-            setIgData(migratedData);
+            setIgData(parsedJson || []);
             setIgFileSha(data.sha);
             setScreen('igEdit');
         } catch (e) {
@@ -769,21 +758,16 @@ export default function App() {
             return Alert.alert("Fout", "Dit lijkt geen geldige Instagram Post of Reel link. Kopieer de link vanuit de Insta app.");
         }
 
-        if (igData.some(item => item.id === finalId)) {
+        if (igData.includes(finalId)) {
             return Alert.alert("Fout", "Deze Story staat al in de lijst!");
         }
 
-        const newEntry = { id: finalId, date: newIgDate };
-        const newData = [newEntry, ...igData];
-        newData.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        setIgData(newData);
+        setIgData([finalId, ...igData]);
         setNewIgUrl('');
-        setNewIgDate(new Date().toISOString().split('T')[0]);
     };
 
     const removeIgUrl = (idToRemove) => {
-        setIgData(prev => prev.filter(item => item.id !== idToRemove));
+        setIgData(prev => prev.filter(id => id !== idToRemove));
     };
 
     const saveIgChanges = async () => {
@@ -1136,23 +1120,15 @@ export default function App() {
 
                     <View style={{ padding: 20 }}>
                         <Text style={styles.label}>Nieuwe Story Toevoegen</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
                             <TextInput 
                                 style={[styles.input, { flex: 1, marginBottom: 0, marginRight: 10 }]} 
                                 value={newIgUrl} 
                                 onChangeText={setNewIgUrl} 
                                 placeholder="Plak Instagram Link of ID..." 
                             />
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-                            <TextInput 
-                                style={[styles.input, { flex: 1, marginBottom: 0, marginRight: 10 }]} 
-                                value={newIgDate} 
-                                onChangeText={setNewIgDate} 
-                                placeholder="Datum (YYYY-MM-DD)" 
-                            />
-                            <TouchableOpacity style={{ backgroundColor: '#F58529', padding: 14, borderRadius: 10, paddingHorizontal: 20 }} onPress={addIgUrl}>
-                                <Text style={{ color: 'white', fontWeight: 'bold' }}>Toevoegen</Text>
+                            <TouchableOpacity style={{ backgroundColor: '#F58529', padding: 14, borderRadius: 10 }} onPress={addIgUrl}>
+                                <Feather name="plus" color="#FFF" size={20} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -1160,7 +1136,7 @@ export default function App() {
                     <FlatList
                         keyboardShouldPersistTaps="handled"
                         data={igData}
-                        keyExtractor={(item) => item.id}
+                        keyExtractor={(item, index) => item + index}
                         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60 }}
                         renderItem={({ item }) => (
                             <View style={styles.listItem}>
@@ -1168,10 +1144,10 @@ export default function App() {
                                     <Feather name="instagram" color="#F58529" size={20} />
                                 </View>
                                 <View style={{ flex: 1, marginLeft: 16 }}>
-                                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A202C' }}>{item.date}</Text>
-                                    <Text style={{ fontSize: 12, color: '#A0AEC0' }}>https://instagram.com/p/{item.id}</Text>
+                                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A202C' }}>{item}</Text>
+                                    <Text style={{ fontSize: 12, color: '#A0AEC0' }}>https://instagram.com/p/{item}</Text>
                                 </View>
-                                <TouchableOpacity onPress={() => removeIgUrl(item.id)} style={{ padding: 10 }}>
+                                <TouchableOpacity onPress={() => removeIgUrl(item)} style={{ padding: 10 }}>
                                     <Feather name="trash-2" color="#E53E3E" size={20} />
                                 </TouchableOpacity>
                             </View>
