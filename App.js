@@ -13,6 +13,8 @@ import {
     SafeAreaView,
     ScrollView,
     FlatList,
+    Animated,
+    Easing,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { encode as btoa, decode as atob } from 'base-64';
@@ -225,6 +227,28 @@ export default function App() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [portfolioLang, setPortfolioLang] = useState('nl'); // Standaard Nederlands
     const ui = UI[portfolioLang] || UI.nl;
+
+    const spinValue = React.useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (screen === 'home') {
+            Animated.loop(
+                Animated.timing(spinValue, {
+                    toValue: 1,
+                    duration: 15000,
+                    easing: Easing.linear,
+                    useNativeDriver: true,
+                })
+            ).start();
+        } else {
+            spinValue.setValue(0);
+        }
+    }, [screen]);
+
+    const spin = spinValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg']
+    });
 
     // --- Portfolio State ---
     const [items, setItems] = useState([]);
@@ -699,9 +723,16 @@ export default function App() {
         return (
             <LinearGradient colors={['#F0F4F8', '#E2E8F0']} style={styles.safeArea}>
                 <SafeAreaView style={{ flex: 1 }}>
-                    <View style={styles.dashboardHeader}>
-                        <Text style={styles.dashboardTitle}>Equivest CMS</Text>
-                        <Text style={styles.dashboardSubtitle}>Platform Beheer</Text>
+                    <View style={[styles.dashboardHeader, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                        <View>
+                            <Text style={styles.dashboardTitle}>Equivest CMS</Text>
+                            <Text style={styles.dashboardSubtitle}>Platform Beheer</Text>
+                        </View>
+                        <Animated.Image 
+                            source={{ uri: 'https://equivestworldwide.com/images/logo.webp' }} 
+                            style={{ width: 80, height: 80, opacity: 0.8, transform: [{ rotate: spin }] }} 
+                            resizeMode="contain"
+                        />
                     </View>
 
                     <View style={styles.homeLangSelector}>
