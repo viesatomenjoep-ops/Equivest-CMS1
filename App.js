@@ -238,11 +238,28 @@ export default function App() {
             const newMd = `---\n${yaml.dump(updatedYaml)}---\n\n${bodyContent}`;
 
             const slug = currentFile ? currentFile.name.replace('.md', '') : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-            const targetPath = currentFile ? currentFile.path : `src/content/portfolio/${portfolioLang}/${slug}.md`;
 
-            await uploadToGithub(targetPath, `CMS: Paard '${title}' geüpdatet`, encodeUtf8B64(newMd), currentFile ? currentFile.sha : null);
+            const langs = ['nl', 'en', 'de', 'es'];
+            for (const lang of langs) {
+                const targetPath = `src/content/portfolio/${lang}/${slug}.md`;
+                let fileSha = null;
+                try {
+                    const existingData = await fetchFromGithub(targetPath);
+                    fileSha = existingData.sha;
+                } catch (e) {
+                    // Bestand bestaat nog niet
+                }
+                const msg = currentFile ? `CMS: Paard '${title}' geüpdatet (${lang})` : `CMS: Nieuw paard '${title}' aangemaakt (${lang})`;
+                await uploadToGithub(targetPath, msg, encodeUtf8B64(newMd), fileSha);
+            }
 
-            Alert.alert('Succes', `Live gezet op Vercel!`);
+            try {
+                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST' });
+            } catch (e) {
+                console.log('Vercel hook failed', e);
+            }
+
+            Alert.alert('Succes', `Actie afgerond. Vercel is nu aan het bouwen, over ca. 60 seconden staat het live!`);
             loadPortfolioList();
         } catch (e) {
             Alert.alert('Upload Fout', e.message);
@@ -283,7 +300,12 @@ export default function App() {
         try {
             const jsonString = JSON.stringify(uiData, null, 2);
             await uploadToGithub('src/i18n/ui.json', `CMS: Tekst Dictionary (${selectedLang}) aangepast`, encodeUtf8B64(jsonString), uiFileSha);
-            Alert.alert('Perfect', 'Alle veranderde teksten staan live!');
+            try {
+                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST' });
+            } catch (e) {
+                console.log('Vercel hook failed', e);
+            }
+            Alert.alert('Perfect', 'Alle veranderde teksten staan over ca. 60 seconden live!');
 
             // Refresh SHA
             const data = await fetchFromGithub('src/i18n/ui.json');
