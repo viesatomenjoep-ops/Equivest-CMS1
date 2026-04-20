@@ -886,9 +886,9 @@ export default function App() {
                             </LinearGradient>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.dashCard} onPress={openStoryEditor}>
+                        <TouchableOpacity style={styles.dashCard} onPress={openIgEditor}>
                             <LinearGradient colors={['#F58529', '#DD2A7B', '#8134AF']} style={styles.dashCardGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                                <View style={[styles.dashCardIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}><Feather name="video" color="#FFF" size={28} /></View>
+                                <View style={[styles.dashCardIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}><Feather name="instagram" color="#FFF" size={28} /></View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={[styles.dashCardTitle, { color: '#FFF' }]}>{ui.ig_title}</Text>
                                     <Text style={[styles.dashCardDesc, { color: 'rgba(255,255,255,0.8)' }]}>{ui.ig_desc}</Text>
