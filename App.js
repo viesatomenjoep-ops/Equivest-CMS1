@@ -27,7 +27,7 @@ const GITHUB_BRANCH = 'main';
 
 
 const IMAGE_DIR = 'src/assets/images';
-const PUBLIC_IMAGE_PREFIX = '/images';
+const PUBLIC_IMAGE_PREFIX = '../../../assets/images';
 
 // CMS INTERFACE TRANSLATIONS
 const UI = {
