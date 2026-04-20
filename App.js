@@ -27,7 +27,139 @@ const GITHUB_BRANCH = 'main';
 
 
 const IMAGE_DIR = 'src/assets/images';
-const PUBLIC_IMAGE_PREFIX = '../../../assets/images';
+const PUBLIC_IMAGE_PREFIX = '/images';
+
+// CMS INTERFACE TRANSLATIONS
+const UI = {
+    nl: {
+        portfolio_title: "Paarden Portfolio",
+        portfolio_desc: "Wijzig specificaties, foto's en details van de collectie.",
+        new_title: "Nieuw Paard Toevoegen",
+        new_desc: "Maak direct een compleet nieuwe advertentie aan.",
+        texts_title: "Website Teksten",
+        texts_desc: "Vertaal en beheer alle overige teksten op de website.",
+        back: "Terug",
+        db: "Portfolio Database",
+        edit: "Bewerken",
+        gen_info: "Algemene Informatie",
+        name: "Naam",
+        desc: "Omschrijving",
+        pic: "Profiel Foto",
+        pic_new: "Kies Nieuwe Foto",
+        pic_changed: "Foto Gewijzigd!",
+        specs: "Specificaties",
+        age: "Leeftijd",
+        gender: "Geslacht",
+        height: "Stokmaat",
+        level: "Niveau",
+        fin: "Financieel & Investering",
+        buy: "Aankoopprijs (Acquisition)",
+        target: "Doelverkoop (Target)",
+        media: "Media & Web Links",
+        yt: "YouTube URL",
+        ht: "HorseTelex URL",
+        body: "Artikel Tekst (App/Website Body)",
+        save: "Opslaan & Naar Vercel",
+        del: "Verwijder Advertentie",
+        sel_lang: "Selecteer Huidige Bewerkings Taal:"
+    },
+    en: {
+        portfolio_title: "Horse Portfolio",
+        portfolio_desc: "Edit specifications, photos, and collection details.",
+        new_title: "Add New Horse",
+        new_desc: "Create a brand new advertisement instantly.",
+        texts_title: "Website Texts",
+        texts_desc: "Translate and manage all other texts on the website.",
+        back: "Back",
+        db: "Portfolio Database",
+        edit: "Edit",
+        gen_info: "General Information",
+        name: "Name",
+        desc: "Description",
+        pic: "Profile Picture",
+        pic_new: "Choose New Photo",
+        pic_changed: "Photo Changed!",
+        specs: "Specifications",
+        age: "Age",
+        gender: "Gender",
+        height: "Height",
+        level: "Level",
+        fin: "Financial & Investment",
+        buy: "Acquisition Price",
+        target: "Target Sale",
+        media: "Media & Web Links",
+        yt: "YouTube URL",
+        ht: "HorseTelex URL",
+        body: "Article Text (App/Website Body)",
+        save: "Save & Push to Vercel",
+        del: "Delete Advertisement",
+        sel_lang: "Select Current Editing Language:"
+    },
+    de: {
+        portfolio_title: "Pferde Portfolio",
+        portfolio_desc: "Bearbeiten Sie Spezifikationen, Fotos und Details.",
+        new_title: "Neues Pferd Hinzufügen",
+        new_desc: "Erstellen Sie sofort eine neue Anzeige.",
+        texts_title: "Website-Texte",
+        texts_desc: "Übersetzen und verwalten Sie andere Website-Texte.",
+        back: "Zurück",
+        db: "Portfolio Datenbank",
+        edit: "Bearbeiten",
+        gen_info: "Allgemeine Informationen",
+        name: "Name",
+        desc: "Beschreibung",
+        pic: "Profilbild",
+        pic_new: "Neues Foto Auswählen",
+        pic_changed: "Foto Geändert!",
+        specs: "Spezifikationen",
+        age: "Alter",
+        gender: "Geschlecht",
+        height: "Stockmaß",
+        level: "Niveau",
+        fin: "Finanzen & Investition",
+        buy: "Kaufpreis",
+        target: "Zielverkauf",
+        media: "Medien & Weblinks",
+        yt: "YouTube URL",
+        ht: "HorseTelex URL",
+        body: "Artikeltext (App/Website)",
+        save: "Speichern & zu Vercel",
+        del: "Anzeige Löschen",
+        sel_lang: "Aktuelle Bearbeitungssprache Auswählen:"
+    },
+    es: {
+        portfolio_title: "Portafolio de Caballos",
+        portfolio_desc: "Edite especificaciones, fotos y detalles de la colección.",
+        new_title: "Añadir Caballo",
+        new_desc: "Cree un nuevo anuncio instantáneamente.",
+        texts_title: "Textos del Sitio Web",
+        texts_desc: "Traduzca y gestione textos del sitio web.",
+        back: "Volver",
+        db: "Base de Datos",
+        edit: "Editar",
+        gen_info: "Información General",
+        name: "Nombre",
+        desc: "Descripción",
+        pic: "Foto de Perfil",
+        pic_new: "Elegir Nueva Foto",
+        pic_changed: "¡Foto Cambiada!",
+        specs: "Especificaciones",
+        age: "Edad",
+        gender: "Género",
+        height: "Altura",
+        level: "Nivel",
+        fin: "Finanzas e Inversión",
+        buy: "Precio de Adquisición",
+        target: "Venta Objetivo",
+        media: "Medios y Enlaces Web",
+        yt: "URL de YouTube",
+        ht: "URL de HorseTelex",
+        body: "Texto del Artículo",
+        save: "Guardar y Enviar",
+        del: "Eliminar Anuncio",
+        sel_lang: "Seleccionar Idioma de Edición:"
+    }
+};
 
 // ==========================================
 // API HELPERS
@@ -92,6 +224,7 @@ export default function App() {
     const [screen, setScreen] = useState('home'); // 'home' | 'portfolioList' | 'portfolioEdit' | 'textEdit'
     const [isProcessing, setIsProcessing] = useState(false);
     const [portfolioLang, setPortfolioLang] = useState('nl'); // Standaard Nederlands
+    const ui = UI[portfolioLang] || UI.nl;
 
     // --- Portfolio State ---
     const [items, setItems] = useState([]);
@@ -258,14 +391,54 @@ export default function App() {
             for (const lang of langs) {
                 const targetPath = `src/content/portfolio/${lang}/${slug}.md`;
                 let fileSha = null;
-                try {
-                    const existingData = await fetchFromGithub(targetPath);
-                    fileSha = existingData.sha;
-                } catch (e) {
-                    // Bestand bestaat nog niet
+                let fileTitle = title;
+                let fileDesc = description;
+                let fileBody = bodyContent;
+                let fileOriginalYaml = originalYaml;
+
+                if (lang !== portfolioLang) {
+                    try {
+                        const existingData = await fetchFromGithub(targetPath);
+                        fileSha = existingData.sha;
+                        const decoded = decodeUtf8B64(existingData.content);
+                        const parts = decoded.split('---');
+                        if (parts.length >= 3) {
+                            fileOriginalYaml = yaml.load(parts[1]) || {};
+                            fileTitle = fileOriginalYaml.title || title;
+                            fileDesc = fileOriginalYaml.description || description; 
+                            fileBody = parts.slice(2).join('---').trim() || bodyContent; 
+                        }
+                    } catch (e) {
+                        // Bestand bestaat niet (voorkomt crashes bij nieuw paard, dupliceert de huidige taal)
+                    }
+                } else {
+                    try {
+                        const existingData = await fetchFromGithub(targetPath);
+                        fileSha = existingData.sha;
+                    } catch (e) {}
                 }
-                const msg = currentFile ? `CMS: Paard '${title}' geüpdatet (${lang})` : `CMS: Nieuw paard '${title}' aangemaakt (${lang})`;
-                await uploadToGithub(targetPath, msg, encodeUtf8B64(newMd), fileSha);
+
+                const targetYaml = {
+                    ...fileOriginalYaml,
+                    title: fileTitle,
+                    description: fileDesc,
+                    youtube_url: youtubeUrl,
+                    horsetelex_url: horsetelexUrl,
+                    image: finalImageUrl,
+                    specs: {
+                        ...(fileOriginalYaml.specs || {}),
+                        age: specAge ? parseInt(specAge) || 0 : 0,
+                        gender: specGender,
+                        height: specHeight,
+                        level: specLevel,
+                        purchase_price: specPurchasePrice,
+                        target_sale: specTargetSale
+                    }
+                };
+
+                const targetMd = `---\n${yaml.dump(targetYaml)}---\n\n${fileBody}`;
+                const msg = fileSha ? `CMS: Paard geüpdatet (${lang})` : `CMS: Nieuw paard aangemaakt (${lang})`;
+                await uploadToGithub(targetPath, msg, encodeUtf8B64(targetMd), fileSha);
             }
 
             try {
@@ -389,7 +562,7 @@ export default function App() {
                     </View>
 
                     <View style={styles.homeLangSelector}>
-                        <Text style={styles.homeLangTitle}>Selecteer Huidige Bewerkings Taal:</Text>
+                        <Text style={styles.homeLangTitle}>{ui.sel_lang}</Text>
                         <View style={styles.langSelectorRow}>
                             {[{ code: 'nl', label: '🇳🇱 NL' }, { code: 'en', label: '🇬🇧 EN' }, { code: 'de', label: '🇩🇪 DE' }, { code: 'es', label: '🇪🇸 ES' }].map(lang => (
                                 <TouchableOpacity 
@@ -408,8 +581,8 @@ export default function App() {
                             <LinearGradient colors={['#1A202C', '#2D3748']} style={styles.dashCardGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                                 <View style={styles.dashCardIcon}><Feather name="book-open" color="#FFF" size={28} /></View>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={styles.dashCardTitle}>Paarden Portfolio</Text>
-                                    <Text style={styles.dashCardDesc}>Wijzig specificaties, foto's en details van de collectie.</Text>
+                                    <Text style={styles.dashCardTitle}>{ui.portfolio_title}</Text>
+                                    <Text style={styles.dashCardDesc}>{ui.portfolio_desc}</Text>
                                 </View>
                             </LinearGradient>
                         </TouchableOpacity>
@@ -418,8 +591,8 @@ export default function App() {
                             <LinearGradient colors={['#3182ce', '#2b6cb0']} style={styles.dashCardGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                                 <View style={[styles.dashCardIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}><Feather name="plus" color="#FFF" size={28} /></View>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={styles.dashCardTitle}>Nieuw Paard Toevoegen</Text>
-                                    <Text style={[styles.dashCardDesc, { color: '#EBF8FF' }]}>Maak direct een compleet nieuwe advertentie aan.</Text>
+                                    <Text style={styles.dashCardTitle}>{ui.new_title}</Text>
+                                    <Text style={[styles.dashCardDesc, { color: '#EBF8FF' }]}>{ui.new_desc}</Text>
                                 </View>
                             </LinearGradient>
                         </TouchableOpacity>
@@ -428,8 +601,8 @@ export default function App() {
                             <LinearGradient colors={['#FFFFFF', '#F7FAFC']} style={styles.dashCardGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                                 <View style={[styles.dashCardIcon, { backgroundColor: '#EDF2F7' }]}><Feather name="settings" color="#2D3748" size={28} /></View>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={[styles.dashCardTitle, { color: '#1A202C' }]}>Website Teksten</Text>
-                                    <Text style={[styles.dashCardDesc, { color: '#718096' }]}>Bewerk de Homepage, Over Ons, en Team info.</Text>
+                                    <Text style={[styles.dashCardTitle, { color: '#1A202C' }]}>{ui.texts_title}</Text>
+                                    <Text style={[styles.dashCardDesc, { color: '#718096' }]}>{ui.texts_desc}</Text>
                                 </View>
                             </LinearGradient>
                         </TouchableOpacity>
@@ -447,7 +620,7 @@ export default function App() {
             <SafeAreaView style={styles.safeAreaList}>
                 <View style={styles.subHeader}>
                     <TouchableOpacity onPress={() => setScreen('home')}><Feather name="arrow-left" color="#1A202C" size={26} /></TouchableOpacity>
-                    <Text style={styles.subHeaderTitle}>Portfolio Database</Text>
+                    <Text style={styles.subHeaderTitle}>{ui.db}</Text>
                     <View style={{ width: 26 }} />
                 </View>
                 <FlatList
@@ -472,88 +645,88 @@ export default function App() {
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
                     <View style={styles.subHeader}>
                         <TouchableOpacity onPress={() => setScreen('portfolioList')}><Feather name="arrow-left" color="#1A202C" size={26} /></TouchableOpacity>
-                        <Text style={styles.subHeaderTitle}>{title.substring(0, 20) || 'Bewerken'}</Text>
+                        <Text style={styles.subHeaderTitle}>{title.substring(0, 20) || ui.edit}</Text>
                         <View style={{ width: 26 }} />
                     </View>
                     <ScrollView contentContainerStyle={styles.scrollForm}>
 
                         <View style={styles.sectionCard}>
-                            <Text style={styles.sectionHeader}>Algemene Informatie</Text>
-                            <Text style={styles.label}>Naam</Text>
+                            <Text style={styles.sectionHeader}>{ui.gen_info}</Text>
+                            <Text style={styles.label}>{ui.name}</Text>
                             <TextInput style={styles.input} value={title} onChangeText={setTitle} />
-                            <Text style={styles.label}>Omschrijving</Text>
+                            <Text style={styles.label}>{ui.desc}</Text>
                             <TextInput style={styles.input} value={description} onChangeText={setDescription} />
 
-                            <Text style={styles.label}>Profiel Foto</Text>
+                            <Text style={styles.label}>{ui.pic}</Text>
                             <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
                                 <Feather name="camera" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
-                                <Text style={{ color: '#4A5568', fontWeight: '500' }}>{imageUri ? 'Foto Gewijzigd!' : 'Kies Nieuwe Foto'}</Text>
+                                <Text style={{ color: '#4A5568', fontWeight: '500' }}>{imageUri ? ui.pic_changed : ui.pic_new}</Text>
                             </TouchableOpacity>
                             {imageIsNew && <Image source={{ uri: imageUri }} style={styles.imagePreview} />}
                         </View>
 
                         <View style={styles.sectionCard}>
-                            <Text style={styles.sectionHeader}>Specificaties</Text>
+                            <Text style={styles.sectionHeader}>{ui.specs}</Text>
                             <View style={{ flexDirection: 'row', marginBottom: 12 }}>
                                 <View style={{ flex: 1, marginRight: 8 }}>
-                                    <Text style={styles.label}>Leeftijd</Text>
+                                    <Text style={styles.label}>{ui.age}</Text>
                                     <TextInput style={styles.input} value={specAge} onChangeText={setSpecAge} keyboardType="numeric" />
                                 </View>
                                 <View style={{ flex: 1, marginLeft: 8 }}>
-                                    <Text style={styles.label}>Geslacht</Text>
+                                    <Text style={styles.label}>{ui.gender}</Text>
                                     <TextInput style={styles.input} value={specGender} onChangeText={setSpecGender} />
                                 </View>
                             </View>
                             <View style={{ flexDirection: 'row' }}>
                                 <View style={{ flex: 1, marginRight: 8 }}>
-                                    <Text style={styles.label}>Stokmaat</Text>
+                                    <Text style={styles.label}>{ui.height}</Text>
                                     <TextInput style={styles.input} value={specHeight} onChangeText={setSpecHeight} />
                                 </View>
                                 <View style={{ flex: 1, marginLeft: 8 }}>
-                                    <Text style={styles.label}>Niveau</Text>
+                                    <Text style={styles.label}>{ui.level}</Text>
                                     <TextInput style={styles.input} value={specLevel} onChangeText={setSpecLevel} />
                                 </View>
                             </View>
                         </View>
 
                         <View style={styles.sectionCard}>
-                            <Text style={styles.sectionHeader}>Financieel & Investering</Text>
+                            <Text style={styles.sectionHeader}>{ui.fin}</Text>
                             <View style={{ flexDirection: 'row' }}>
                                 <View style={{ flex: 1, marginRight: 8 }}>
-                                    <Text style={styles.label}>Aankoopprijs (Acquisition)</Text>
+                                    <Text style={styles.label}>{ui.buy}</Text>
                                     <TextInput style={styles.input} value={specPurchasePrice} onChangeText={setSpecPurchasePrice} placeholder="€ 30.000" />
                                 </View>
                                 <View style={{ flex: 1, marginLeft: 8 }}>
-                                    <Text style={styles.label}>Doelverkoop (Target)</Text>
+                                    <Text style={styles.label}>{ui.target}</Text>
                                     <TextInput style={styles.input} value={specTargetSale} onChangeText={setSpecTargetSale} placeholder="TBD" />
                                 </View>
                             </View>
                         </View>
 
                         <View style={styles.sectionCard}>
-                            <Text style={styles.sectionHeader}>Media & Web Links</Text>
+                            <Text style={styles.sectionHeader}>{ui.media}</Text>
                             <View style={{ flexDirection: 'row', marginBottom: 12 }}>
                                 <View style={{ flex: 1, marginRight: 8 }}>
-                                    <Text style={styles.label}>YouTube URL</Text>
+                                    <Text style={styles.label}>{ui.yt}</Text>
                                     <TextInput style={styles.input} value={youtubeUrl} onChangeText={setYoutubeUrl} placeholder="https://" />
                                 </View>
                                 <View style={{ flex: 1, marginLeft: 8 }}>
-                                    <Text style={styles.label}>HorseTelex</Text>
+                                    <Text style={styles.label}>{ui.ht}</Text>
                                     <TextInput style={styles.input} value={horsetelexUrl} onChangeText={setHorsetelexUrl} placeholder="https://" />
                                 </View>
                             </View>
 
-                            <Text style={styles.label}>Artikel Tekst (App/Website Body)</Text>
+                            <Text style={styles.label}>{ui.body}</Text>
                             <TextInput style={[styles.input, styles.textArea]} value={bodyContent} onChangeText={setBodyContent} multiline textAlignVertical='top' />
                         </View>
 
                         <TouchableOpacity style={styles.publishBtn} onPress={savePortfolioChanges} disabled={isProcessing}>
-                            {isProcessing ? <ActivityIndicator color="#fff" /> : <><Feather name="check" color="#fff" size={20} /><Text style={styles.publishBtnText}>Opslaan & Naar Vercel</Text></>}
+                            {isProcessing ? <ActivityIndicator color="#fff" /> : <><Feather name="check" color="#fff" size={20} /><Text style={styles.publishBtnText}>{ui.save}</Text></>}
                         </TouchableOpacity>
 
                         {currentFile && (
                             <TouchableOpacity style={[styles.publishBtn, { backgroundColor: '#E53E3E', marginTop: 12 }]} onPress={deletePortfolioItem} disabled={isProcessing}>
-                                {isProcessing ? <ActivityIndicator color="#fff" /> : <><Feather name="trash-2" color="#fff" size={20} /><Text style={styles.publishBtnText}>Verwijder Advertentie</Text></>}
+                                {isProcessing ? <ActivityIndicator color="#fff" /> : <><Feather name="trash-2" color="#fff" size={20} /><Text style={styles.publishBtnText}>{ui.del}</Text></>}
                             </TouchableOpacity>
                         )}
                     </ScrollView>
