@@ -459,42 +459,55 @@ export default function App() {
     const deletePortfolioItem = async () => {
         if (!currentFile) return;
 
-        Alert.alert(
-            'Paard Verwijderen',
-            `Weet je zeker dat je ${title || 'dit paard'} wilt verwijderen? Dit wordt direct verwijderd van de live website.`,
-            [
-                { text: 'Annuleren', style: 'cancel' },
-                { text: 'Verwijder Definitief', style: 'destructive', onPress: async () => {
-                    setIsProcessing(true);
+        const executeDelete = async () => {
+            setIsProcessing(true);
+            try {
+                const slug = currentFile.name.replace('.md', '');
+                const langs = ['nl', 'en', 'de', 'es'];
+                for (const lang of langs) {
+                    const targetPath = `src/content/portfolio/${lang}/${slug}.md`;
                     try {
-                        const slug = currentFile.name.replace('.md', '');
-                        const langs = ['nl', 'en', 'de', 'es'];
-                        for (const lang of langs) {
-                            const targetPath = `src/content/portfolio/${lang}/${slug}.md`;
-                            try {
-                                const fileData = await fetchFromGithub(targetPath);
-                                await deleteFromGithub(targetPath, `CMS: Paard '${title}' verwijderd (${lang})`, fileData.sha);
-                            } catch (e) {
-                                // Bestand bestaat niet in deze taal
-                            }
-                        }
-
-                        // Trigger Vercel Deploy Hook
-                        try {
-                            await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST' });
-                        } catch (e) {}
-
-                        Alert.alert('Verwijderd', `Correct verwijderd! Vercel is nu aan het bouwen en over ca. 60 seconden is het verdwenen van de website.`);
-                        setScreen('portfolioList');
-                        loadPortfolioList();
-                    } catch(e) {
-                        Alert.alert('Fout bij Verwijderen', e.message);
-                    } finally {
-                        setIsProcessing(false);
+                        const fileData = await fetchFromGithub(targetPath);
+                        await deleteFromGithub(targetPath, `CMS: Paard '${title}' verwijderd (${lang})`, fileData.sha);
+                    } catch (e) {
+                        // Bestand bestaat niet in deze taal
                     }
-                }}
-            ]
-        );
+                }
+
+                // Trigger Vercel Deploy Hook
+                try {
+                    await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST' });
+                } catch (e) {}
+
+                if (Platform.OS === 'web') window.alert(`Correct verwijderd! Vercel is nu aan het bouwen en over ca. 60 seconden is het verdwenen van de website.`);
+                else Alert.alert('Verwijderd', `Correct verwijderd! Vercel is nu aan het bouwen en over ca. 60 seconden is het verdwenen van de website.`);
+                
+                setScreen('portfolioList');
+                loadPortfolioList();
+            } catch(e) {
+                if (Platform.OS === 'web') window.alert('Fout bij Verwijderen: ' + e.message);
+                else Alert.alert('Fout bij Verwijderen', e.message);
+            } finally {
+                setIsProcessing(false);
+            }
+        };
+
+        const confirmMessage = `Weet je zeker dat je ${title || 'dit paard'} wilt verwijderen? Dit wordt direct verwijderd van de live website.`;
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(confirmMessage)) {
+                executeDelete();
+            }
+        } else {
+            Alert.alert(
+                'Paard Verwijderen',
+                confirmMessage,
+                [
+                    { text: 'Annuleren', style: 'cancel' },
+                    { text: 'Verwijder Definitief', style: 'destructive', onPress: executeDelete }
+                ]
+            );
+        }
     };
 
     // ==========================================
