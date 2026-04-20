@@ -236,6 +236,8 @@ export default function App() {
     const [youtubeUrl, setYoutubeUrl] = useState('');
     const [horsetelexUrl, setHorsetelexUrl] = useState('');
     const [bodyContent, setBodyContent] = useState('');
+    const [category, setCategory] = useState('Hunters'); // Hunters | Jumpers | Pony's | Equitation
+    const [listCategory, setListCategory] = useState('All'); // Filter state
 
     // Specificaties
     const [specAge, setSpecAge] = useState('');
@@ -265,7 +267,22 @@ export default function App() {
         try {
             const currentDir = `src/content/portfolio/${portfolioLang}`;
             const data = await fetchFromGithub(currentDir);
-            setItems(data.filter(f => f.name.endsWith('.md')));
+            const mdFiles = data.filter(f => f.name.endsWith('.md'));
+            
+            const filesWithCat = await Promise.all(mdFiles.map(async f => {
+                try {
+                    const fd = await fetchFromGithub(f.path);
+                    const dec = decodeUtf8B64(fd.content);
+                    const pts = dec.split('---');
+                    if (pts.length >= 3) {
+                        const parsed = yaml.load(pts[1]) || {};
+                        return { ...f, category: parsed.category || 'Hunters' };
+                    }
+                } catch(e) {}
+                return { ...f, category: 'Hunters' };
+            }));
+
+            setItems(filesWithCat);
             setScreen('portfolioList');
         } catch (e) {
             Alert.alert('Fout', e.message);
@@ -295,6 +312,7 @@ export default function App() {
             setYoutubeUrl(parsedYaml.youtube_url || '');
             setHorsetelexUrl(parsedYaml.horsetelex_url || '');
             setBodyContent(parsedBody || '');
+            setCategory(parsedYaml.category || 'Hunters');
 
             const s = parsedYaml.specs || {};
             setSpecAge(String(s.age || ''));
@@ -322,6 +340,7 @@ export default function App() {
         setYoutubeUrl('');
         setHorsetelexUrl('');
         setBodyContent('');
+        setCategory('Hunters');
         setSpecAge('');
         setSpecGender('');
         setSpecHeight('');
@@ -422,6 +441,7 @@ export default function App() {
                     ...fileOriginalYaml,
                     title: fileTitle,
                     description: fileDesc,
+                    category: category,
                     youtube_url: youtubeUrl,
                     horsetelex_url: horsetelexUrl,
                     image: finalImageUrl,
@@ -629,6 +649,8 @@ export default function App() {
 
     // --- PORTFOLIO LIST ---
     if (screen === 'portfolioList') {
+        const filteredItems = listCategory === 'All' ? items : items.filter(i => i.category === listCategory);
+
         return (
             <SafeAreaView style={styles.safeAreaList}>
                 <View style={styles.subHeader}>
@@ -636,8 +658,23 @@ export default function App() {
                     <Text style={styles.subHeaderTitle}>{ui.db}</Text>
                     <View style={{ width: 26 }} />
                 </View>
+
+                <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
+                        {['All', 'Hunters', 'Jumpers', "Pony's", 'Equitation'].map(cat => (
+                            <TouchableOpacity 
+                                key={cat} 
+                                style={[styles.catBtn, listCategory === cat && styles.catBtnActive]} 
+                                onPress={() => setListCategory(cat)}
+                            >
+                                <Text style={[styles.catBtnText, listCategory === cat && styles.catBtnTextActive]}>{cat}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+
                 <FlatList
-                    data={items}
+                    data={filteredItems}
                     keyExtractor={(i) => i.sha}
                     contentContainerStyle={{ padding: 20 }}
                     renderItem={({ item }) => (
@@ -669,6 +706,19 @@ export default function App() {
                             <TextInput style={styles.input} value={title} onChangeText={setTitle} />
                             <Text style={styles.label}>{ui.desc}</Text>
                             <TextInput style={styles.input} value={description} onChangeText={setDescription} />
+
+                            <Text style={styles.label}>Categorie</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
+                                {['Hunters', 'Jumpers', "Pony's", 'Equitation'].map(cat => (
+                                    <TouchableOpacity 
+                                        key={cat} 
+                                        style={[styles.catBtn, category === cat && styles.catBtnActive]} 
+                                        onPress={() => setCategory(cat)}
+                                    >
+                                        <Text style={[styles.catBtnText, category === cat && styles.catBtnTextActive]}>{cat}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
 
                             <Text style={styles.label}>{ui.pic}</Text>
                             <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
@@ -843,6 +893,20 @@ const styles = StyleSheet.create({
     langBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
     langBtnActive: { backgroundColor: '#EBF8FF' },
     langText: { fontSize: 14, fontWeight: '700', color: '#A0AEC0' },
+    langTextActive: { color: '#3182ce' },
+
+    homeLangSelector: { marginHorizontal: 20, marginTop: 10, backgroundColor: '#FFF', padding: 16, borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+    homeLangTitle: { fontSize: 14, fontWeight: '700', color: '#4A5568', marginBottom: 12 },
+    langSelectorRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    homeLangBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: '#EDF2F7' },
+    homeLangBtnActive: { backgroundColor: '#3182ce' },
+    homeLangText: { fontSize: 13, fontWeight: '700', color: '#4A5568' },
+    homeLangTextActive: { color: '#FFF' },
+
+    catBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#EDF2F7', marginRight: 8, marginBottom: 8 },
+    catBtnActive: { backgroundColor: '#3182ce' },
+    catBtnText: { fontSize: 14, fontWeight: '700', color: '#4A5568' },
+    catBtnTextActive: { color: '#FFF' }
     langTextActive: { color: '#3182CE' },
 
     searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', margin: 16, marginTop: 0, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
