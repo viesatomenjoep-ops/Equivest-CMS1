@@ -906,7 +906,7 @@ const styles = StyleSheet.create({
     catBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#EDF2F7', marginRight: 8, marginBottom: 8 },
     catBtnActive: { backgroundColor: '#3182ce' },
     catBtnText: { fontSize: 14, fontWeight: '700', color: '#4A5568' },
-    catBtnTextActive: { color: '#FFF' }
+    catBtnTextActive: { color: '#FFF' },
     langTextActive: { color: '#3182CE' },
 
     searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', margin: 16, marginTop: 0, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
