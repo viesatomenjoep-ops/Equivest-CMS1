@@ -438,9 +438,9 @@ export default function App() {
                 const timestamp = new Date().getTime();
                 const slug = currentFile ? currentFile.name.replace('.md', '') : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
                 const videoFilename = `${slug}-${timestamp}.mp4`;
-                const VIDEO_DIR = 'src/assets/videos';
+                const VIDEO_DIR = 'public/videos';
                 await uploadToGithub(`${VIDEO_DIR}/${videoFilename}`, `CMS: Video geüpload: ${slug}`, videoBase64);
-                finalVideoUrl = `../../../assets/videos/${videoFilename}`;
+                finalVideoUrl = `/videos/${videoFilename}`;
             }
 
             const updatedYaml = {
