@@ -257,6 +257,8 @@ export default function App() {
     const [videoBase64, setVideoBase64] = useState(null);
     const [videoIsNew, setVideoIsNew] = useState(false);
 
+    const [gallery, setGallery] = useState([]); // Array of objects: { uri, base64, isNew, url }
+
     // --- Website Teksten State ---
     const [uiData, setUiData] = useState(null);
     const [uiFileSha, setUiFileSha] = useState(null);
@@ -328,6 +330,9 @@ export default function App() {
 
             setImageUri(null); setImageBase64(null); setImageIsNew(false);
             setVideoUri(null); setVideoBase64(null); setVideoIsNew(false);
+            
+            const initialGallery = Array.isArray(parsedYaml.gallery) ? parsedYaml.gallery.map(url => ({ uri: null, base64: null, isNew: false, url })) : [];
+            setGallery(initialGallery);
 
             setScreen('portfolioEdit');
         } catch (e) {
@@ -358,6 +363,7 @@ export default function App() {
         setVideoUri(null);
         setVideoBase64(null);
         setVideoIsNew(false);
+        setGallery([]);
         setScreen('portfolioEdit');
     };
 
@@ -419,6 +425,34 @@ export default function App() {
         }
     };
 
+    const pickGalleryImage = async () => {
+        try {
+            let result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                quality: 0.2,
+                base64: true,
+            });
+            if (!result.canceled) {
+                const newAsset = {
+                    uri: result.assets[0].uri,
+                    base64: result.assets[0].base64,
+                    isNew: true,
+                    url: null
+                };
+                setGallery(prev => [...prev, newAsset].slice(0, 10));
+            }
+        } catch (e) { }
+    };
+
+    const removeGalleryImage = (index) => {
+        setGallery(prev => {
+            const next = [...prev];
+            next.splice(index, 1);
+            return next;
+        });
+    };
+
     const savePortfolioChanges = async () => {
         if (!title.trim()) return Alert.alert('Fout', 'Titel ontbreekt');
         setIsProcessing(true);
@@ -443,6 +477,20 @@ export default function App() {
                 finalVideoUrl = `/videos/${videoFilename}`;
             }
 
+            let finalGalleryList = [];
+            for (let i = 0; i < gallery.length; i++) {
+                const gItem = gallery[i];
+                if (gItem.isNew && gItem.base64) {
+                    const timestamp = new Date().getTime() + i;
+                    const slug = currentFile ? currentFile.name.replace('.md', '') : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+                    const imageFilename = `gallery-${slug}-${timestamp}.jpg`;
+                    await uploadToGithub(`${IMAGE_DIR}/${imageFilename}`, `CMS: Galerijfoto geüpload: ${slug}`, gItem.base64);
+                    finalGalleryList.push(`${PUBLIC_IMAGE_PREFIX}/${imageFilename}`);
+                } else if (gItem.url) {
+                    finalGalleryList.push(gItem.url);
+                }
+            }
+
             const updatedYaml = {
                 ...originalYaml,
                 title,
@@ -450,6 +498,8 @@ export default function App() {
                 youtube_url: youtubeUrl,
                 horsetelex_url: horsetelexUrl,
                 image: finalImageUrl,
+                ...(finalVideoUrl ? { local_video: finalVideoUrl } : {}),
+                ...(finalGalleryList.length > 0 ? { gallery: finalGalleryList } : {}),
                 specs: {
                     ...(originalYaml.specs || {}),
                     age: specAge ? parseInt(specAge) || 0 : 0,
@@ -504,6 +554,7 @@ export default function App() {
                     horsetelex_url: horsetelexUrl,
                     image: finalImageUrl,
                     ...(finalVideoUrl ? { local_video: finalVideoUrl } : {}),
+                    ...(finalGalleryList.length > 0 ? { gallery: finalGalleryList } : {}),
                     specs: {
                         ...(fileOriginalYaml.specs || {}),
                         age: specAge ? parseInt(specAge) || 0 : 0,
@@ -791,6 +842,24 @@ export default function App() {
                                 <Feather name="video" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
                                 <Text style={{ color: '#4A5568', fontWeight: '500' }}>{videoIsNew ? "Nieuwe Video Bevestigd!" : (originalYaml?.local_video ? "Wijzig Video" : "Selecteer Video")}</Text>
                             </TouchableOpacity>
+
+                            <Text style={[styles.label, {marginTop: 12}]}>Extra Galerij Foto's (max 10)</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                                {gallery.map((gItem, i) => (
+                                    <View key={i} style={{ width: 60, height: 60, overflow: 'hidden', borderRadius: 4, position: 'relative' }}>
+                                        <Image source={{ uri: gItem.isNew ? gItem.uri : gItem.url.replace('../../../assets', 'https://equivestworldwide.com') }} style={{ width: 60, height: 60, backgroundColor: '#E2E8F0' }} />
+                                        <TouchableOpacity onPress={() => removeGalleryImage(i)} style={{ position: 'absolute', top: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', padding: 4 }}>
+                                            <Feather name="x" color="#fff" size={12} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                            </View>
+                            {gallery.length < 10 && (
+                                <TouchableOpacity style={[styles.imagePicker, { padding: 12 }]} onPress={pickGalleryImage}>
+                                    <Feather name="plus-square" color="#4A5568" size={20} style={{ marginBottom: 4 }} />
+                                    <Text style={{ color: '#4A5568', fontWeight: '500', fontSize: 12 }}>Voeg Galerijfoto Toe</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
 
                         <View style={styles.sectionCard}>
