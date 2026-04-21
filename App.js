@@ -553,19 +553,25 @@ export default function App() {
                 Alert.alert('Bestand Laden', 'Bestand inlezen... Dit kan even duren.');
                 setTimeout(async () => {
                     try {
-                        const b64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-                        if (type === 'vetCheck') {
-                            setVetCheckUri(uri);
-                            setVetCheckBase64(b64);
-                            setVetCheckMime(mimeType);
-                            setVetCheckIsNew(true);
-                        } else {
-                            setPassportUri(uri);
-                            setPassportBase64(b64);
-                            setPassportMime(mimeType);
-                            setPassportIsNew(true);
-                        }
-                        Alert.alert('Succes', 'Bestand is geselecteerd voor upload!');
+                        const response = await fetch(uri);
+                        const blob = await response.blob();
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const b64 = reader.result.split(',')[1];
+                            if (type === 'vetCheck') {
+                                setVetCheckUri(uri);
+                                setVetCheckBase64(b64);
+                                setVetCheckMime(mimeType);
+                                setVetCheckIsNew(true);
+                            } else {
+                                setPassportUri(uri);
+                                setPassportBase64(b64);
+                                setPassportMime(mimeType);
+                                setPassportIsNew(true);
+                            }
+                            Alert.alert('Succes', 'Bestand is geselecteerd voor upload!');
+                        };
+                        reader.readAsDataURL(blob);
                     } catch(e) {
                         Alert.alert('Fout', 'Kon bestand niet verwerken.');
                     }
