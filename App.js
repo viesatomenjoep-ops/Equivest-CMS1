@@ -695,9 +695,6 @@ export default function App() {
     const deletePortfolioItem = async () => {
         if (!currentFile) return;
 
-    const deletePortfolioItem = async () => {
-        if (!currentFile) return;
-
         const executeDelete = async () => {
             setIsProcessing(true);
             try {
