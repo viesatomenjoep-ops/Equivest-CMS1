@@ -1081,22 +1081,6 @@ export default function App() {
                                 <Text style={{ color: '#4A5568', fontWeight: '500' }}>{videoIsNew ? "Nieuwe Video Bevestigd!" : (originalYaml?.local_video ? "Wijzig Video" : "Selecteer Video")}</Text>
                             </TouchableOpacity>
 
-                            <Text style={[styles.label, {marginTop: 12}]}>Klinische Keuring (Vet Check)</Text>
-                            <TouchableOpacity style={styles.imagePicker} onPress={() => handleDocumentUpload('vetCheck')}>
-                                <Feather name="file-text" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
-                                <Text style={{ color: '#4A5568', fontWeight: '500' }}>
-                                    {vetCheckIsNew ? "Nieuw Bestand Bevestigd!" : (originalYaml?.documents?.vet_check ? "Wijzig Vet Check" : "Voeg Vet Check Toe")}
-                                </Text>
-                            </TouchableOpacity>
-
-                            <Text style={[styles.label, {marginTop: 12}]}>Paspoort (Passport)</Text>
-                            <TouchableOpacity style={styles.imagePicker} onPress={() => handleDocumentUpload('passport')}>
-                                <Feather name="book" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
-                                <Text style={{ color: '#4A5568', fontWeight: '500' }}>
-                                    {passportIsNew ? "Nieuw Bestand Bevestigd!" : (originalYaml?.documents?.passport ? "Wijzig Paspoort" : "Voeg Paspoort Toe")}
-                                </Text>
-                            </TouchableOpacity>
-
                             <Text style={[styles.label, {marginTop: 12}]}>Extra Galerij Foto's (max 10)</Text>
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
                                 {gallery.map((gItem, i) => (
@@ -1114,6 +1098,26 @@ export default function App() {
                                     <Text style={{ color: '#4A5568', fontWeight: '500', fontSize: 12 }}>Voeg Galerijfoto Toe</Text>
                                 </TouchableOpacity>
                             )}
+                        </View>
+
+                        <View style={styles.sectionCard}>
+                            <Text style={styles.sectionHeader}>Documenten & Scans</Text>
+                            
+                            <Text style={styles.label}>Klinische Keuring (Vet Check)</Text>
+                            <TouchableOpacity style={styles.imagePicker} onPress={() => handleDocumentUpload('vetCheck')}>
+                                <Feather name="file-text" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
+                                <Text style={{ color: '#4A5568', fontWeight: '500' }}>
+                                    {vetCheckIsNew ? "Nieuw Bestand Bevestigd!" : (originalYaml?.documents?.vet_check ? "Wijzig Vet Check" : "Voeg Vet Check Toe")}
+                                </Text>
+                            </TouchableOpacity>
+
+                            <Text style={[styles.label, {marginTop: 12}]}>Paspoort (Passport)</Text>
+                            <TouchableOpacity style={styles.imagePicker} onPress={() => handleDocumentUpload('passport')}>
+                                <Feather name="book" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
+                                <Text style={{ color: '#4A5568', fontWeight: '500' }}>
+                                    {passportIsNew ? "Nieuw Bestand Bevestigd!" : (originalYaml?.documents?.passport ? "Wijzig Paspoort" : "Voeg Paspoort Toe")}
+                                </Text>
+                            </TouchableOpacity>
                         </View>
 
                         <View style={styles.sectionCard}>
