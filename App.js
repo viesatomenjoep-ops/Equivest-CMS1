@@ -1080,7 +1080,12 @@ export default function App() {
                                 <Feather name="camera" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
                                 <Text style={{ color: '#4A5568', fontWeight: '500' }}>{imageUri ? ui.pic_changed : ui.pic_new}</Text>
                             </TouchableOpacity>
-                            {imageIsNew && <Image source={{ uri: imageUri }} style={styles.imagePreview} />}
+                            {(imageIsNew ? imageUri : (originalYaml?.image ? (originalYaml.image.startsWith('/images') ? 'https://www.equivestworldwide.com' + originalYaml.image.replace('/images/horses/', '/images/') : originalYaml.image) : null)) && (
+                                <Image 
+                                    source={{ uri: imageIsNew ? imageUri : (originalYaml.image.startsWith('/images') ? 'https://www.equivestworldwide.com' + originalYaml.image.replace('/images/horses/', '/images/') : originalYaml.image) }} 
+                                    style={styles.imagePreview} 
+                                />
+                            )}
 
                             <Text style={[styles.label, {marginTop: 12}]}>Lokale Video (max ~15 sec)</Text>
                             <TouchableOpacity style={styles.imagePicker} onPress={pickVideo}>
