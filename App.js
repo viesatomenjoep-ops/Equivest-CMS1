@@ -686,7 +686,7 @@ export default function App() {
             }
 
             try {
-                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
+                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_npp5AzRQoyNExYVbDT4b0ORl9XAC/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
             } catch (e) {}
 
             Alert.alert('✅ Succes', `Actie afgerond. Vercel is nu aan het bouwen, over ca. 60 seconden staat het live!`);
@@ -710,7 +710,7 @@ export default function App() {
                 if (error) throw new Error(error.message);
 
                 try {
-                    await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
+                    await fetch('https://api.vercel.com/v1/integrations/deploy/prj_npp5AzRQoyNExYVbDT4b0ORl9XAC/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
                 } catch (e) {}
 
                 if (Platform.OS === 'web') window.alert(`Correct verwijderd! Vercel is nu aan het bouwen en over ca. 60 seconden is het verdwenen van de website.`);
@@ -810,7 +810,7 @@ export default function App() {
             }
 
             try {
-                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
+                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_npp5AzRQoyNExYVbDT4b0ORl9XAC/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
             } catch (e) {
                 console.log('Vercel hook failed', e);
             }
@@ -903,7 +903,7 @@ export default function App() {
             Alert.alert('✅ Opgeslagen!', 'Jouw nieuwe Stories staan over ca. 45 seconden live op de website!');
             
             try {
-                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
+                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_npp5AzRQoyNExYVbDT4b0ORl9XAC/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
             } catch (e) {
                 console.log('Vercel hook failed', e);
             }
