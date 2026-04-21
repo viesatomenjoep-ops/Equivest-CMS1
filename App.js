@@ -17,16 +17,27 @@ import {
     Easing,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { encode as btoa, decode as atob } from 'base-64';
 import { LinearGradient } from 'expo-linear-gradient';
 import yaml from 'js-yaml'; // eslint-disable-line
 import { Feather } from '@expo/vector-icons';
+import { createClient } from '@supabase/supabase-js';
 
-const GITHUB_TOKEN = ['g','h','p','_','R','W','B','Q','r','l','6','Z','B','7','J','L','J','k','l','O','R','a','i','3','x','l','J','6','U','n','P','n','g','g','3','z','C','b','d','P'].join('');
-const GITHUB_OWNER = 'viesatomenjoep-ops';
-const GITHUB_REPO = 'equivest-platform';
-const GITHUB_BRANCH = 'main';
+const SUPABASE_URL = 'https://tvdydhmbvuhpbcxsvxmf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZHlkaG1idnVocGJjeHN2eG1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MDA4ODgsImV4cCI6MjA5MjI3Njg4OH0.d433eTXjtuFKp4YpJKwZuk3nR4SqV_QZKWTiU088dUs';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const ensureAuthenticated = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        await supabase.auth.signInWithPassword({
+            email: 'cms@equivestworldwide.com',
+            password: 'EquivestCMS2026!'
+        });
+    }
+};
 
 const IMAGE_DIR = 'src/assets/images';
 const PUBLIC_IMAGE_PREFIX = '../../../assets/images';
@@ -171,9 +182,11 @@ const UI = {
     }
 };
 
-// ==========================================
-// API HELPERS
-// ==========================================
+const GITHUB_TOKEN = ['g','h','p','_','R','W','B','Q','r','l','6','Z','B','7','J','L','J','k','l','O','R','a','i','3','x','l','J','6','U','n','P','n','g','g','3','z','C','b','d','P'].join('');
+const GITHUB_OWNER = 'viesatomenjoep-ops';
+const GITHUB_REPO = 'equivest-platform';
+const GITHUB_BRANCH = 'main';
+
 const fetchFromGithub = async (path = '') => {
     const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}?ref=${GITHUB_BRANCH}`;
     const response = await fetch(url, {
@@ -185,37 +198,27 @@ const fetchFromGithub = async (path = '') => {
     return await response.json();
 };
 
-const uploadToGithub = async (path, message, contentBase64, sha = null) => {
-    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`;
-    const bodyObj = { message, content: contentBase64, branch: GITHUB_BRANCH };
-    if (sha) bodyObj.sha = sha;
+const uploadToStorage = async (bucket, path, base64data, contentType) => {
+    try {
+        const binaryString = atob(base64data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        const { data, error } = await supabase.storage.from(bucket).upload(path, bytes.buffer, {
+            contentType: contentType,
+            upsert: true
+        });
 
-    const response = await fetch(url, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyObj),
-    });
+        if (error) throw new Error(error.message);
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Github Upload API Fout');
+        const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(path);
+        return publicUrlData.publicUrl;
+    } catch (e) {
+        console.error('Storage upload failed:', e);
+        throw e;
     }
-    return await response.json();
-};
-
-const deleteFromGithub = async (path, message, sha) => {
-    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`;
-    const bodyObj = { message, sha, branch: GITHUB_BRANCH };
-    const response = await fetch(url, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyObj),
-    });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Github Delete API Fout');
-    }
-    return await response.json();
 };
 
 const decodeUtf8B64 = (b64) => {
@@ -289,6 +292,16 @@ export default function App() {
     const [videoBase64, setVideoBase64] = useState(null);
     const [videoIsNew, setVideoIsNew] = useState(false);
 
+    const [vetCheckUri, setVetCheckUri] = useState(null);
+    const [vetCheckBase64, setVetCheckBase64] = useState(null);
+    const [vetCheckIsNew, setVetCheckIsNew] = useState(false);
+    const [vetCheckMime, setVetCheckMime] = useState(null);
+
+    const [passportUri, setPassportUri] = useState(null);
+    const [passportBase64, setPassportBase64] = useState(null);
+    const [passportIsNew, setPassportIsNew] = useState(false);
+    const [passportMime, setPassportMime] = useState(null);
+
     const [gallery, setGallery] = useState([]); // Array of objects: { uri, base64, isNew, url }
 
     // --- Website Teksten State ---
@@ -308,24 +321,18 @@ export default function App() {
     const loadPortfolioList = async () => {
         setIsProcessing(true);
         try {
-            const currentDir = `src/content/portfolio/${portfolioLang}`;
-            const data = await fetchFromGithub(currentDir);
-            const mdFiles = data.filter(f => f.name.endsWith('.md'));
+            await ensureAuthenticated();
+            const { data, error } = await supabase
+                .from('horses')
+                .select('*')
+                .eq('lang', portfolioLang);
+            if (error) throw new Error(error.message);
             
-            const filesWithCat = await Promise.all(mdFiles.map(async f => {
-                try {
-                    const fd = await fetchFromGithub(f.path);
-                    const dec = decodeUtf8B64(fd.content);
-                    const pts = dec.split('---');
-                    if (pts.length >= 3) {
-                        const parsed = yaml.load(pts[1]) || {};
-                        return { ...f, category: parsed.category || 'Hunters' };
-                    }
-                } catch(e) {}
-                return { ...f, category: 'Hunters' };
-            }));
-
-            setItems(filesWithCat);
+            setItems((data || []).map(h => ({
+                name: h.slug,
+                category: h.category || 'Hunters',
+                _raw: h
+            })));
             setScreen('portfolioList');
         } catch (e) {
             Alert.alert('Fout', e.message);
@@ -337,27 +344,17 @@ export default function App() {
     const openPortfolioEditor = async (file) => {
         setIsProcessing(true);
         try {
-            const data = await fetchFromGithub(file.path);
-            const contentStr = decodeUtf8B64(data.content);
-            const parts = contentStr.split('---');
-            let parsedYaml = {};
-            let parsedBody = '';
+            const h = file._raw;
+            setCurrentFile({ name: h.slug });
+            setOriginalYaml(h);
+            setTitle(h.title || '');
+            setDescription(h.description || '');
+            setYoutubeUrl(h.youtube_url || '');
+            setHorsetelexUrl(h.horsetelex_url || '');
+            setBodyContent(h.body || '');
+            setCategory(h.category || 'Hunters');
 
-            if (parts.length >= 3) {
-                try { parsedYaml = yaml.load(parts[1]) || {}; } catch (e) { }
-                parsedBody = parts.slice(2).join('---').trim();
-            }
-
-            setCurrentFile({ sha: data.sha, path: file.path, name: file.name });
-            setOriginalYaml(parsedYaml);
-            setTitle(parsedYaml.title || '');
-            setDescription(parsedYaml.description || '');
-            setYoutubeUrl(parsedYaml.youtube_url || '');
-            setHorsetelexUrl(parsedYaml.horsetelex_url || '');
-            setBodyContent(parsedBody || '');
-            setCategory(parsedYaml.category || 'Hunters');
-
-            const s = parsedYaml.specs || {};
+            const s = h.specs || {};
             setSpecAge(String(s.age || ''));
             setSpecGender(s.gender || '');
             setSpecHeight(s.height || '');
@@ -367,8 +364,10 @@ export default function App() {
 
             setImageUri(null); setImageBase64(null); setImageIsNew(false);
             setVideoUri(null); setVideoBase64(null); setVideoIsNew(false);
+            setVetCheckUri(null); setVetCheckBase64(null); setVetCheckIsNew(false);
+            setPassportUri(null); setPassportBase64(null); setPassportIsNew(false);
             
-            const initialGallery = Array.isArray(parsedYaml.gallery) ? parsedYaml.gallery.map(url => ({ uri: null, base64: null, isNew: false, url })) : [];
+            const initialGallery = Array.isArray(h.gallery) ? h.gallery.map(url => ({ uri: null, base64: null, isNew: false, url })) : [];
             setGallery(initialGallery);
 
             setScreen('portfolioEdit');
@@ -400,6 +399,8 @@ export default function App() {
         setVideoUri(null);
         setVideoBase64(null);
         setVideoIsNew(false);
+        setVetCheckUri(null); setVetCheckBase64(null); setVetCheckIsNew(false);
+        setPassportUri(null); setPassportBase64(null); setPassportIsNew(false);
         setGallery([]);
         setScreen('portfolioEdit');
     };
@@ -490,28 +491,127 @@ export default function App() {
         });
     };
 
+    const handleDocumentUpload = async (type) => {
+        Alert.alert(
+            `Upload ${type === 'vetCheck' ? 'Klinische Keuring' : 'Paspoort'}`,
+            'Kies een optie:',
+            [
+                { text: 'Annuleren', style: 'cancel' },
+                { text: 'Maak Foto met Camera', onPress: () => captureDocumentPhoto(type) },
+                { text: 'Kies Bestand / Foto', onPress: () => pickDocumentFile(type) }
+            ]
+        );
+    };
+
+    const captureDocumentPhoto = async (type) => {
+        try {
+            const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+            if (permissionResult.granted === false) {
+                Alert.alert("Camera weigering", "Je moet cameratoegang toestaan om een foto te maken.");
+                return;
+            }
+            let result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                quality: 0.5,
+                base64: true,
+            });
+            if (!result.canceled) {
+                if (type === 'vetCheck') {
+                    setVetCheckUri(result.assets[0].uri);
+                    setVetCheckBase64(result.assets[0].base64);
+                    setVetCheckMime('image/jpeg');
+                    setVetCheckIsNew(true);
+                } else {
+                    setPassportUri(result.assets[0].uri);
+                    setPassportBase64(result.assets[0].base64);
+                    setPassportMime('image/jpeg');
+                    setPassportIsNew(true);
+                }
+            }
+        } catch (e) {
+            Alert.alert('Fout', 'Camera kon niet geopend worden.');
+        }
+    };
+
+    const pickDocumentFile = async (type) => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['image/*', 'application/pdf'],
+                copyToCacheDirectory: true
+            });
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const asset = result.assets[0];
+                const uri = asset.uri;
+                let mimeType = asset.mimeType || 'application/octet-stream';
+                if (asset.name && asset.name.toLowerCase().endsWith('.pdf')) {
+                    mimeType = 'application/pdf';
+                } else if (asset.name && (asset.name.toLowerCase().endsWith('.jpg') || asset.name.toLowerCase().endsWith('.jpeg'))) {
+                    mimeType = 'image/jpeg';
+                }
+
+                Alert.alert('Bestand Laden', 'Bestand inlezen... Dit kan even duren.');
+                setTimeout(async () => {
+                    try {
+                        const b64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+                        if (type === 'vetCheck') {
+                            setVetCheckUri(uri);
+                            setVetCheckBase64(b64);
+                            setVetCheckMime(mimeType);
+                            setVetCheckIsNew(true);
+                        } else {
+                            setPassportUri(uri);
+                            setPassportBase64(b64);
+                            setPassportMime(mimeType);
+                            setPassportIsNew(true);
+                        }
+                        Alert.alert('Succes', 'Bestand is geselecteerd voor upload!');
+                    } catch(e) {
+                        Alert.alert('Fout', 'Kon bestand niet verwerken.');
+                    }
+                }, 100);
+            }
+        } catch (e) {
+            Alert.alert('Fout', 'Document picker kon niet geopend worden.');
+        }
+    };
+
     const savePortfolioChanges = async () => {
         if (!title.trim()) return Alert.alert('Fout', 'Titel ontbreekt');
         setIsProcessing(true);
         try {
+            await ensureAuthenticated();
             let finalImageUrl = originalYaml.image || '';
             let finalVideoUrl = originalYaml.local_video || '';
+            let finalVetCheckUrl = (originalYaml.documents && originalYaml.documents.vet_check) || '';
+            let finalPassportUrl = (originalYaml.documents && originalYaml.documents.passport) || '';
+
+            const slug = currentFile ? currentFile.name : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
             if (imageIsNew && imageBase64) {
                 const timestamp = new Date().getTime();
-                const slug = currentFile ? currentFile.name.replace('.md', '') : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
                 const imageFilename = `${slug}-${timestamp}.jpg`;
-                await uploadToGithub(`${IMAGE_DIR}/${imageFilename}`, `CMS: Foto geüpload: ${slug}`, imageBase64);
-                finalImageUrl = `${PUBLIC_IMAGE_PREFIX}/${imageFilename}`;
+                finalImageUrl = await uploadToStorage('portfolio_media', imageFilename, imageBase64, 'image/jpeg');
             }
 
             if (videoIsNew && videoBase64) {
                 const timestamp = new Date().getTime();
-                const slug = currentFile ? currentFile.name.replace('.md', '') : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
                 const videoFilename = `${slug}-${timestamp}.mp4`;
-                const VIDEO_DIR = 'public/videos';
-                await uploadToGithub(`${VIDEO_DIR}/${videoFilename}`, `CMS: Video geüpload: ${slug}`, videoBase64);
-                finalVideoUrl = `/videos/${videoFilename}`;
+                finalVideoUrl = await uploadToStorage('portfolio_media', videoFilename, videoBase64, 'video/mp4');
+            }
+
+            if (vetCheckIsNew && vetCheckBase64) {
+                const timestamp = new Date().getTime();
+                const ext = vetCheckMime === 'application/pdf' ? 'pdf' : 'jpg';
+                const filename = `vetcheck-${slug}-${timestamp}.${ext}`;
+                finalVetCheckUrl = await uploadToStorage('portfolio_media', filename, vetCheckBase64, vetCheckMime || 'application/octet-stream');
+            }
+
+            if (passportIsNew && passportBase64) {
+                const timestamp = new Date().getTime();
+                const ext = passportMime === 'application/pdf' ? 'pdf' : 'jpg';
+                const filename = `passport-${slug}-${timestamp}.${ext}`;
+                finalPassportUrl = await uploadToStorage('portfolio_media', filename, passportBase64, passportMime || 'application/octet-stream');
             }
 
             let finalGalleryList = [];
@@ -519,102 +619,71 @@ export default function App() {
                 const gItem = gallery[i];
                 if (gItem.isNew && gItem.base64) {
                     const timestamp = new Date().getTime() + i;
-                    const slug = currentFile ? currentFile.name.replace('.md', '') : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
                     const imageFilename = `gallery-${slug}-${timestamp}.jpg`;
-                    await uploadToGithub(`${IMAGE_DIR}/${imageFilename}`, `CMS: Galerijfoto geüpload: ${slug}`, gItem.base64);
-                    finalGalleryList.push(`${PUBLIC_IMAGE_PREFIX}/${imageFilename}`);
+                    const gUrl = await uploadToStorage('portfolio_media', imageFilename, gItem.base64, 'image/jpeg');
+                    finalGalleryList.push(gUrl);
                 } else if (gItem.url) {
                     finalGalleryList.push(gItem.url);
                 }
             }
 
-            const updatedYaml = {
-                ...originalYaml,
-                title,
-                description,
+            const targetRecord = {
+                slug: slug,
+                title: title,
+                description: description,
+                category: category,
                 youtube_url: youtubeUrl,
                 horsetelex_url: horsetelexUrl,
                 image: finalImageUrl,
-                ...(finalVideoUrl ? { local_video: finalVideoUrl } : {}),
-                ...(finalGalleryList.length > 0 ? { gallery: finalGalleryList } : {}),
+                local_video: finalVideoUrl,
+                gallery: finalGalleryList,
+                body: bodyContent,
                 specs: {
-                    ...(originalYaml.specs || {}),
                     age: specAge ? parseInt(specAge) || 0 : 0,
                     gender: specGender,
                     height: specHeight,
                     level: specLevel,
                     purchase_price: specPurchasePrice,
                     target_sale: specTargetSale
+                },
+                documents: {
+                    ...(originalYaml.documents || {}),
+                    vet_check: finalVetCheckUrl,
+                    passport: finalPassportUrl
                 }
             };
-            const newMd = `---\n${yaml.dump(updatedYaml)}---\n\n${bodyContent}`;
-
-            const slug = currentFile ? currentFile.name.replace('.md', '') : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
             const langs = ['nl', 'en', 'de', 'es'];
             for (const lang of langs) {
-                const targetPath = `src/content/portfolio/${lang}/${slug}.md`;
-                let fileSha = null;
-                let fileTitle = title;
-                let fileDesc = description;
-                let fileBody = bodyContent;
-                let fileOriginalYaml = originalYaml;
-
-                if (lang !== portfolioLang) {
-                    try {
-                        const existingData = await fetchFromGithub(targetPath);
-                        fileSha = existingData.sha;
-                        const decoded = decodeUtf8B64(existingData.content);
-                        const parts = decoded.split('---');
-                        if (parts.length >= 3) {
-                            fileOriginalYaml = yaml.load(parts[1]) || {};
-                            fileTitle = fileOriginalYaml.title || title;
-                            fileDesc = fileOriginalYaml.description || description; 
-                            fileBody = parts.slice(2).join('---').trim() || bodyContent; 
-                        }
-                    } catch (e) {
-                        // Bestand bestaat niet (voorkomt crashes bij nieuw paard, dupliceert de huidige taal)
+                let rowTitle = title;
+                let rowDesc = description;
+                let rowBody = bodyContent;
+                
+                if (lang !== portfolioLang && currentFile) {
+                    const { data: existingData } = await supabase.from('horses').select('*').eq('slug', slug).eq('lang', lang).single();
+                    if (existingData) {
+                        rowTitle = existingData.title || title;
+                        rowDesc = existingData.description || description;
+                        rowBody = existingData.body || bodyContent;
                     }
-                } else {
-                    try {
-                        const existingData = await fetchFromGithub(targetPath);
-                        fileSha = existingData.sha;
-                    } catch (e) {}
                 }
 
-                const targetYaml = {
-                    ...fileOriginalYaml,
-                    title: fileTitle,
-                    description: fileDesc,
-                    category: category,
-                    youtube_url: youtubeUrl,
-                    horsetelex_url: horsetelexUrl,
-                    image: finalImageUrl,
-                    ...(finalVideoUrl ? { local_video: finalVideoUrl } : {}),
-                    ...(finalGalleryList.length > 0 ? { gallery: finalGalleryList } : {}),
-                    specs: {
-                        ...(fileOriginalYaml.specs || {}),
-                        age: specAge ? parseInt(specAge) || 0 : 0,
-                        gender: specGender,
-                        height: specHeight,
-                        level: specLevel,
-                        purchase_price: specPurchasePrice,
-                        target_sale: specTargetSale
-                    }
-                };
-
-                const targetMd = `---\n${yaml.dump(targetYaml)}---\n\n${fileBody}`;
-                const msg = fileSha ? `CMS: Paard geüpdatet (${lang})` : `CMS: Nieuw paard aangemaakt (${lang})`;
-                await uploadToGithub(targetPath, msg, encodeUtf8B64(targetMd), fileSha);
+                const { error } = await supabase.from('horses').upsert({
+                   ...targetRecord,
+                   lang: lang,
+                   title: rowTitle,
+                   description: rowDesc,
+                   body: rowBody 
+                }, { onConflict: 'lang,slug' });
+                
+                if (error) throw new Error(error.message);
             }
 
             try {
-                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST' });
-            } catch (e) {
-                console.log('Vercel hook failed', e);
-            }
+                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
+            } catch (e) {}
 
-            Alert.alert('Succes', `Actie afgerond. Vercel is nu aan het bouwen, over ca. 60 seconden staat het live!`);
+            Alert.alert('✅ Succes', `Actie afgerond. Vercel is nu aan het bouwen, over ca. 60 seconden staat het live!`);
             loadPortfolioList();
         } catch (e) {
             Alert.alert('Upload Fout', e.message);
@@ -626,24 +695,19 @@ export default function App() {
     const deletePortfolioItem = async () => {
         if (!currentFile) return;
 
+    const deletePortfolioItem = async () => {
+        if (!currentFile) return;
+
         const executeDelete = async () => {
             setIsProcessing(true);
             try {
-                const slug = currentFile.name.replace('.md', '');
-                const langs = ['nl', 'en', 'de', 'es'];
-                for (const lang of langs) {
-                    const targetPath = `src/content/portfolio/${lang}/${slug}.md`;
-                    try {
-                        const fileData = await fetchFromGithub(targetPath);
-                        await deleteFromGithub(targetPath, `CMS: Paard '${title}' verwijderd (${lang})`, fileData.sha);
-                    } catch (e) {
-                        // Bestand bestaat niet in deze taal
-                    }
-                }
+                await ensureAuthenticated();
+                const slug = currentFile.name;
+                const { error } = await supabase.from('horses').delete().eq('slug', slug);
+                if (error) throw new Error(error.message);
 
-                // Trigger Vercel Deploy Hook
                 try {
-                    await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST' });
+                    await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
                 } catch (e) {}
 
                 if (Platform.OS === 'web') window.alert(`Correct verwijderd! Vercel is nu aan het bouwen en over ca. 60 seconden is het verdwenen van de website.`);
@@ -683,15 +747,30 @@ export default function App() {
     const openTextEditor = async () => {
         setIsProcessing(true);
         try {
+            await ensureAuthenticated();
+            // Fetch baseline purely for structure/keys
             const data = await fetchFromGithub('src/i18n/ui.json');
             const contentStr = decodeUtf8B64(data.content);
-            const parsedJson = JSON.parse(contentStr);
-            setUiData(parsedJson);
+            const baseJson = JSON.parse(contentStr);
+
+            // Fetch live translations from Supabase
+            const { data: supaTexts, error } = await supabase.from('website_texts').select('*');
+            if (error) console.log("Geen supabase vertalingen:", error.message);
+
+            if (supaTexts) {
+                // Merge Supabase on top of github base
+                for (const row of supaTexts) {
+                    if (!baseJson[row.lang]) baseJson[row.lang] = {};
+                    baseJson[row.lang][row.key] = row.value;
+                }
+            }
+
+            setUiData(baseJson);
             setUiFileSha(data.sha);
             setScreen('textEdit');
             setSearchQuery('');
         } catch (e) {
-            Alert.alert('Fout', "ui.json kon niet geladen worden. Heeft de migratie voltooid?");
+            Alert.alert('Fout', "ui.json structuur kon niet geladen worden. " + e.message);
         } finally {
             setIsProcessing(false);
         }
@@ -707,19 +786,32 @@ export default function App() {
     const saveTextChanges = async () => {
         setIsProcessing(true);
         try {
-            const jsonString = JSON.stringify(uiData, null, 2);
-            await uploadToGithub('src/i18n/ui.json', `CMS: Tekst Dictionary (${selectedLang}) aangepast`, encodeUtf8B64(jsonString), uiFileSha);
+            await ensureAuthenticated();
+            const updates = [];
+            const activeLangData = uiData[selectedLang] || {};
+            for (const [key, value] of Object.entries(activeLangData)) {
+                updates.push({
+                    lang: selectedLang,
+                    key: key,
+                    value: value
+                });
+            }
+
+            // Batch upsert to supabase
+            if (updates.length > 0) {
+                const { error } = await supabase
+                    .from('website_texts')
+                    .upsert(updates, { onConflict: 'lang,key' });
+                
+                if (error) throw new Error(error.message);
+            }
+
             try {
-                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST' });
+                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
             } catch (e) {
                 console.log('Vercel hook failed', e);
             }
-            Alert.alert('Perfect', 'Alle veranderde teksten staan over ca. 60 seconden live!');
-
-            // Refresh SHA
-            const data = await fetchFromGithub('src/i18n/ui.json');
-            setUiFileSha(data.sha);
-
+            Alert.alert('✅ Opgeslagen!', 'Teksten zijn direct opgeslagen in de database en worden nu op de website gepubliceerd!');
         } catch (e) {
             Alert.alert('Fout', e.message);
         } finally {
@@ -733,21 +825,23 @@ export default function App() {
     const openIgEditor = async () => {
         setIsProcessing(true);
         try {
-            const data = await fetchFromGithub('src/data/instagram.json');
-            const contentStr = decodeUtf8B64(data.content);
-            const parsedJson = JSON.parse(contentStr);
-            
-            // Map alles naar {id, title} objecten
-            const migratedData = (parsedJson || []).map(item => {
-                if (typeof item === 'string') return { id: item, title: '' };
-                return { id: item.id || item, title: item.title || '' };
-            });
+            const { data, error } = await supabase
+                .from('instagram_posts')
+                .select('*')
+                .order('upload_date', { ascending: false });
+
+            if (error) throw new Error(error.message);
+
+            const migratedData = (data || []).map(item => ({
+                id: item.post_id,
+                title: item.title || '',
+                uploadDate: item.upload_date
+            }));
 
             setIgData(migratedData);
-            setIgFileSha(data.sha);
             setScreen('igEdit');
         } catch (e) {
-            Alert.alert('Fout', "instagram.json kon niet geladen worden. " + e.message);
+            Alert.alert('Fout', "Instagram stories konden niet geladen worden. " + e.message);
         } finally {
             setIsProcessing(false);
         }
@@ -790,16 +884,26 @@ export default function App() {
     const saveIgChanges = async () => {
         setIsProcessing(true);
         try {
-            const jsonString = JSON.stringify(igData, null, 2);
-            await uploadToGithub('src/data/instagram.json', `CMS: Instagram Stories geüpdatet`, encodeUtf8B64(jsonString), igFileSha);
+            await ensureAuthenticated();
+            for (const item of igData) {
+                const record = {
+                    post_id: item.id || item,
+                    title: item.title || '',
+                    upload_date: item.uploadDate || new Date().toISOString().split('T')[0],
+                };
+                const { error } = await supabase
+                    .from('instagram_posts')
+                    .upsert(record, { onConflict: 'post_id' });
+                if (error) throw new Error(error.message);
+            }
+
+            Alert.alert('✅ Opgeslagen!', 'Jouw nieuwe Stories staan over ca. 45 seconden live op de website!');
+            
             try {
-                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST' });
-            } catch (e) {}
-            
-            Alert.alert('Succes', 'Jouw nieuwe Stories staan over ca. 60 seconden live op de website!');
-            
-            const data = await fetchFromGithub('src/data/instagram.json');
-            setIgFileSha(data.sha);
+                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/q0IfdpjTsn', { method: 'POST', mode: 'no-cors' });
+            } catch (e) {
+                console.log('Vercel hook failed', e);
+            }
         } catch (e) {
             Alert.alert('Fout', e.message);
         } finally {
@@ -975,6 +1079,22 @@ export default function App() {
                             <TouchableOpacity style={styles.imagePicker} onPress={pickVideo}>
                                 <Feather name="video" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
                                 <Text style={{ color: '#4A5568', fontWeight: '500' }}>{videoIsNew ? "Nieuwe Video Bevestigd!" : (originalYaml?.local_video ? "Wijzig Video" : "Selecteer Video")}</Text>
+                            </TouchableOpacity>
+
+                            <Text style={[styles.label, {marginTop: 12}]}>Klinische Keuring (Vet Check)</Text>
+                            <TouchableOpacity style={styles.imagePicker} onPress={() => handleDocumentUpload('vetCheck')}>
+                                <Feather name="file-text" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
+                                <Text style={{ color: '#4A5568', fontWeight: '500' }}>
+                                    {vetCheckIsNew ? "Nieuw Bestand Bevestigd!" : (originalYaml?.documents?.vet_check ? "Wijzig Vet Check" : "Voeg Vet Check Toe")}
+                                </Text>
+                            </TouchableOpacity>
+
+                            <Text style={[styles.label, {marginTop: 12}]}>Paspoort (Passport)</Text>
+                            <TouchableOpacity style={styles.imagePicker} onPress={() => handleDocumentUpload('passport')}>
+                                <Feather name="book" color="#4A5568" size={24} style={{ marginBottom: 8 }} />
+                                <Text style={{ color: '#4A5568', fontWeight: '500' }}>
+                                    {passportIsNew ? "Nieuw Bestand Bevestigd!" : (originalYaml?.documents?.passport ? "Wijzig Paspoort" : "Voeg Paspoort Toe")}
+                                </Text>
                             </TouchableOpacity>
 
                             <Text style={[styles.label, {marginTop: 12}]}>Extra Galerij Foto's (max 10)</Text>
