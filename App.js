@@ -492,6 +492,10 @@ export default function App() {
     };
 
     const handleDocumentUpload = async (type) => {
+        if (Platform.OS === 'web') {
+            pickDocumentFile(type);
+            return;
+        }
         Alert.alert(
             `Upload ${type === 'vetCheck' ? 'Klinische Keuring' : 'Paspoort'}`,
             'Kies een optie:',
