@@ -414,9 +414,34 @@ export default function App() {
                 base64: true,
             });
             if (!result.canceled) {
-                setImageUri(result.assets[0].uri);
-                setImageBase64(result.assets[0].base64);
-                setImageIsNew(true);
+                setIsProcessing(true);
+                try {
+                    const slugToUse = currentFile?.name || 'new';
+                    const timestamp = new Date().getTime();
+                    const imageFilename = `${slugToUse}-${timestamp}.jpg`;
+                    const gUrl = await uploadToStorage('portfolio_media', imageFilename, result.assets[0].base64, 'image/jpeg');
+                    
+                    setImageUri(gUrl);
+                    setImageBase64(null);
+                    setImageIsNew(false);
+                    
+                    // Auto-save to DB if this is an existing horse
+                    if (currentFile && originalYaml?.id) {
+                        const targetRecord = {
+                            id: originalYaml.id,
+                            slug: currentFile.name,
+                            image: gUrl
+                        };
+                        supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
+                            if(error) console.log("Auto-save image failed", error);
+                            else console.log("Auto-saved main image to DB");
+                        });
+                    }
+                } catch(err) {
+                    Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
+                } finally {
+                    setIsProcessing(false);
+                }
             }
         } catch (e) {
             Alert.alert('Fotonetwerk Faal', 'De galerie kon niet geopend worden.');
@@ -472,13 +497,41 @@ export default function App() {
                 base64: true,
             });
             if (!result.canceled) {
-                const newAsset = {
-                    uri: result.assets[0].uri,
-                    base64: result.assets[0].base64,
-                    isNew: true,
-                    url: null
-                };
-                setGallery(prev => [...prev, newAsset].slice(0, 10));
+                setIsProcessing(true);
+                try {
+                    const slugToUse = currentFile?.name || 'new';
+                    const timestamp = new Date().getTime();
+                    const imageFilename = `gallery-${slugToUse}-${timestamp}.jpg`;
+                    const gUrl = await uploadToStorage('portfolio_media', imageFilename, result.assets[0].base64, 'image/jpeg');
+                    
+                    const newAsset = {
+                        uri: gUrl,
+                        base64: null,
+                        isNew: false,
+                        url: gUrl
+                    };
+                    
+                    setGallery(prev => {
+                        const newGallery = [...prev, newAsset].slice(0, 10);
+                        // Auto-save to DB if this is an existing horse
+                        if (currentFile && originalYaml?.id) {
+                            const targetRecord = {
+                                id: originalYaml.id,
+                                slug: currentFile.name,
+                                gallery: newGallery.map(g => g.url).filter(Boolean)
+                            };
+                            supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
+                                if(error) console.log("Auto-save gallery failed", error);
+                                else console.log("Auto-saved gallery to DB");
+                            });
+                        }
+                        return newGallery;
+                    });
+                } catch(err) {
+                    Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
+                } finally {
+                    setIsProcessing(false);
+                }
             }
         } catch (e) { }
     };
@@ -487,6 +540,19 @@ export default function App() {
         setGallery(prev => {
             const next = [...prev];
             next.splice(index, 1);
+            
+            // Auto-save to DB if this is an existing horse
+            if (currentFile && originalYaml?.id) {
+                const targetRecord = {
+                    id: originalYaml.id,
+                    slug: currentFile.name,
+                    gallery: next.map(g => g.url).filter(Boolean)
+                };
+                supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
+                    if(error) console.log("Auto-save gallery failed", error);
+                    else console.log("Auto-saved gallery to DB");
+                });
+            }
             return next;
         });
     };
@@ -638,6 +704,8 @@ export default function App() {
             }
 
             const targetRecord = {
+                ...(originalYaml.id ? { id: originalYaml.id } : {}),
+                lang: selectedLang || 'en', // Keep lang explicit
                 slug: slug,
                 title: title,
                 description: description,
@@ -689,9 +757,41 @@ export default function App() {
                 if (error) throw new Error(error.message);
             }
 
+            // Trigger Vercel Build by updating a trigger file on GitHub
             try {
-                await fetch('https://api.vercel.com/v1/integrations/deploy/prj_8ziNBTbHCZ2zrMCMR7koQ7DGKPLS/QsgbNESz2S', { method: 'POST', mode: 'no-cors' });
-            } catch (e) {}
+                const path = '.vercel-trigger.txt';
+                const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`;
+                
+                let sha = null;
+                try {
+                    const getRes = await fetch(`${url}?ref=${GITHUB_BRANCH}`, {
+                        headers: { Authorization: `Bearer ${GITHUB_TOKEN}` }
+                    });
+                    if (getRes.ok) {
+                        const data = await getRes.json();
+                        sha = data.sha;
+                    }
+                } catch(e) {}
+
+                const content = btoa(new Date().toISOString() + " - " + slug);
+                const body = {
+                    message: `CMS: Trigger Vercel Build for ${slug}`,
+                    content: content,
+                    branch: GITHUB_BRANCH
+                };
+                if (sha) body.sha = sha;
+
+                await fetch(url, {
+                    method: 'PUT',
+                    headers: { 
+                        Authorization: `Bearer ${GITHUB_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+            } catch (e) {
+                console.log('GitHub trigger failed', e);
+            }
 
             Alert.alert('✅ Succes', `Actie afgerond. Vercel is nu aan het bouwen, over ca. 60 seconden staat het live!`);
             loadPortfolioList();
