@@ -411,48 +411,37 @@ export default function App() {
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 quality: 0.2,
+                base64: true,
             });
             if (!result.canceled) {
                 setIsProcessing(true);
                 try {
-                    const uri = result.assets[0].uri;
-                    const response = await fetch(uri);
-                    const blob = await response.blob();
-                    const reader = new FileReader();
-                    reader.onloadend = async () => {
-                        try {
-                            const b64 = reader.result.split(',')[1];
-                            const slugToUse = currentFile?.name || 'new';
-                            const timestamp = new Date().getTime();
-                            const imageFilename = `${slugToUse}-${timestamp}.jpg`;
-                            const gUrl = await uploadToStorage('portfolio_media', imageFilename, b64, 'image/jpeg');
-                            
-                            setImageUri(gUrl);
-                            setImageBase64(null);
-                            setImageIsNew(false);
-                            
-                            if (currentFile && originalYaml?.id) {
-                                const targetRecord = {
-                                    id: originalYaml.id,
-                                    slug: currentFile.name,
-                                    image: gUrl
-                                };
-                                supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
-                                    if(error) console.log("Auto-save image failed", error);
-                                    else console.log("Auto-saved main image to DB");
-                                });
-                            }
-                            Alert.alert('Succes', 'Hoofdfoto direct geüpload!');
-                        } catch(err) {
-                            Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
-                        } finally {
-                            setIsProcessing(false);
-                        }
-                    };
-                    reader.readAsDataURL(blob);
+                    const b64 = result.assets[0].base64;
+                    const slugToUse = currentFile?.name || 'new';
+                    const timestamp = new Date().getTime();
+                    const imageFilename = `${slugToUse}-${timestamp}.jpg`;
+                    const gUrl = await uploadToStorage('portfolio_media', imageFilename, b64, 'image/jpeg');
+                    
+                    setImageUri(gUrl);
+                    setImageBase64(null);
+                    setImageIsNew(false);
+                    
+                    if (currentFile && originalYaml?.id) {
+                        const targetRecord = {
+                            id: originalYaml.id,
+                            slug: currentFile.name,
+                            image: gUrl
+                        };
+                        supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
+                            if(error) console.log("Auto-save image failed", error);
+                            else console.log("Auto-saved main image to DB");
+                        });
+                    }
+                    Alert.alert('Succes', 'Hoofdfoto direct geüpload!');
                 } catch(err) {
+                    Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
+                } finally {
                     setIsProcessing(false);
-                    Alert.alert('Fout', 'Lezen van bestand mislukt: ' + err.message);
                 }
             }
         } catch (e) {
@@ -528,57 +517,52 @@ export default function App() {
         try {
             let result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
+                allowsMultipleSelection: true,
+                selectionLimit: 10,
                 quality: 0.2,
+                base64: true,
             });
             if (!result.canceled) {
                 setIsProcessing(true);
                 try {
-                    const uri = result.assets[0].uri;
-                    const response = await fetch(uri);
-                    const blob = await response.blob();
-                    const reader = new FileReader();
-                    reader.onloadend = async () => {
-                        try {
-                            const b64 = reader.result.split(',')[1];
-                            const slugToUse = currentFile?.name || 'new';
-                            const timestamp = new Date().getTime();
-                            const imageFilename = `gallery-${slugToUse}-${timestamp}.jpg`;
-                            const gUrl = await uploadToStorage('portfolio_media', imageFilename, b64, 'image/jpeg');
-                            
-                            const newAsset = {
-                                uri: gUrl,
-                                base64: null,
-                                isNew: false,
-                                url: gUrl
+                    let uploadedUrls = [];
+                    for (let i = 0; i < result.assets.length; i++) {
+                        const asset = result.assets[i];
+                        if (!asset.base64) continue;
+                        
+                        const slugToUse = currentFile?.name || 'new';
+                        const timestamp = new Date().getTime() + i;
+                        const imageFilename = `gallery-${slugToUse}-${timestamp}.jpg`;
+                        const gUrl = await uploadToStorage('portfolio_media', imageFilename, asset.base64, 'image/jpeg');
+                        
+                        uploadedUrls.push({
+                            uri: gUrl,
+                            base64: null,
+                            isNew: false,
+                            url: gUrl
+                        });
+                    }
+                    
+                    setGallery(prev => {
+                        const newGallery = [...prev, ...uploadedUrls].slice(0, 20); // allow up to 20 images
+                        if (currentFile && originalYaml?.id) {
+                            const targetRecord = {
+                                id: originalYaml.id,
+                                slug: currentFile.name,
+                                gallery: newGallery.map(g => g.url).filter(Boolean)
                             };
-                            
-                            setGallery(prev => {
-                                const newGallery = [...prev, newAsset].slice(0, 10);
-                                if (currentFile && originalYaml?.id) {
-                                    const targetRecord = {
-                                        id: originalYaml.id,
-                                        slug: currentFile.name,
-                                        gallery: newGallery.map(g => g.url).filter(Boolean)
-                                    };
-                                    supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
-                                        if(error) console.log("Auto-save gallery failed", error);
-                                        else console.log("Auto-saved gallery to DB");
-                                    });
-                                }
-                                return newGallery;
+                            supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
+                                if(error) console.log("Auto-save gallery failed", error);
+                                else console.log("Auto-saved gallery to DB");
                             });
-                            Alert.alert('Succes', 'Galerij afbeelding geüpload!');
-                        } catch(err) {
-                            Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
-                        } finally {
-                            setIsProcessing(false);
                         }
-                    };
-                    reader.readAsDataURL(blob);
+                        return newGallery;
+                    });
+                    Alert.alert('Succes', `${uploadedUrls.length} Galerij afbeelding(en) geüpload!`);
                 } catch(err) {
+                    Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
+                } finally {
                     setIsProcessing(false);
-                    Alert.alert('Fout', 'Lezen van bestand mislukt: ' + err.message);
                 }
             }
         } catch (e) { }
