@@ -445,7 +445,7 @@ export default function App() {
                                 const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
                                 if (allLangs) {
                                     for (const l of allLangs) {
-                                        supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, image: gUrl }, { onConflict: 'id' }).then(({error}) => {
+                                        supabase.from('horses').update({ image: gUrl }).eq('id', l.id).then(({error}) => {
                                             if(error) console.log("Auto-save image failed for", l.id, error);
                                         });
                                     }
@@ -505,7 +505,7 @@ export default function App() {
                                     const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
                                     if (allLangs) {
                                         for (const l of allLangs) {
-                                            supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, local_video: vUrl }, { onConflict: 'id' }).then(({error}) => {});
+                                            supabase.from('horses').update({ local_video: vUrl }).eq('id', l.id).then(({error}) => {});
                                         }
                                     }
                                 }
@@ -571,7 +571,7 @@ export default function App() {
                         const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
                         if (allLangs) {
                             for (const l of allLangs) {
-                                supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, gallery: newUrls }, { onConflict: 'id' }).then(({error}) => {});
+                                supabase.from('horses').update({ gallery: newUrls }).eq('id', l.id).then(({error}) => {});
                             }
                         }
                         setOriginalYaml(old => ({...old, gallery: newUrls}));
@@ -601,7 +601,7 @@ export default function App() {
                 supabase.from('horses').select('id').eq('slug', currentFile.name).then(({data}) => {
                     if (data) {
                         for (const l of data) {
-                            supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, gallery: newUrls }, { onConflict: 'id' }).then(()=>{});
+                            supabase.from('horses').update({ gallery: newUrls }).eq('id', l.id).then(()=>{});
                         }
                     }
                 });
@@ -633,7 +633,7 @@ export default function App() {
             const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
             if (allLangs) {
                 for (const l of allLangs) {
-                    supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, documents: docs }, { onConflict: 'id' }).then(()=>{});
+                    supabase.from('horses').update({ documents: docs }).eq('id', l.id).then(()=>{});
                 }
             }
             setOriginalYaml(prev => ({...prev, documents: docs}));
