@@ -502,7 +502,7 @@ export default function App() {
                             
                             setVideoBase64(null);
                             setVideoUri(vUrl);
-                            setVideoIsNew(false);
+                            setVideoIsNew(true);
                             
                             // Auto-save
                             if (currentFile) {
@@ -642,11 +642,11 @@ export default function App() {
             if (type === 'vetCheck') {
                 setVetCheckUri(docUrl);
                 setVetCheckBase64(null);
-                setVetCheckIsNew(false);
+                setVetCheckIsNew(true);
             } else {
                 setPassportUri(docUrl);
                 setPassportBase64(null);
-                setPassportIsNew(false);
+                setPassportIsNew(true);
             }
             await autoSaveDocument(type, docUrl);
             Alert.alert('Succes', 'Document is direct geüpload naar Supabase!');
