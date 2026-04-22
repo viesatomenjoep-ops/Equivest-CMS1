@@ -623,7 +623,8 @@ export default function App() {
     const autoSaveDocument = async (type, url) => {
         if (currentFile) {
             const docs = { ...(originalYaml.documents || {}) };
-            docs[type] = url;
+            const docKey = type === 'vetCheck' ? 'vet_check' : 'passport';
+            docs[docKey] = url;
             const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
             if (allLangs) {
                 const updatePromises = allLangs.map(l => supabase.from('horses').update({ documents: docs }).eq('id', l.id));
