@@ -470,12 +470,36 @@ export default function App() {
                         }
                         
                         const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const b64 = reader.result.split(',')[1];
-                            setVideoBase64(b64);
-                            setVideoUri(uri);
-                            setVideoIsNew(true);
-                            Alert.alert('Video Klaar', 'De video is succesvol geselecteerd voor upload!');
+                        reader.onloadend = async () => {
+                            setIsProcessing(true);
+                            try {
+                                const b64 = reader.result.split(',')[1];
+                                const slugToUse = currentFile?.name || 'new';
+                                const timestamp = new Date().getTime();
+                                const videoFilename = `${slugToUse}-${timestamp}.mp4`;
+                                const vUrl = await uploadToStorage('portfolio_media', videoFilename, b64, 'video/mp4');
+                                
+                                setVideoBase64(null);
+                                setVideoUri(vUrl);
+                                setVideoIsNew(false);
+                                
+                                // Auto-save
+                                if (currentFile && originalYaml?.id) {
+                                    supabase.from('horses').upsert({
+                                        id: originalYaml.id,
+                                        slug: currentFile.name,
+                                        local_video: vUrl
+                                    }, { onConflict: 'id' }).then(({error}) => {
+                                        if(error) console.log("Auto-save video failed", error);
+                                        else console.log("Auto-saved video to DB");
+                                    });
+                                }
+                                Alert.alert('Video Klaar', 'De video is succesvol geüpload!');
+                            } catch(err) {
+                                Alert.alert('Fout', 'Uploaden video mislukt: ' + err.message);
+                            } finally {
+                                setIsProcessing(false);
+                            }
                         };
                         reader.readAsDataURL(blob);
                     } catch(e) {
@@ -573,6 +597,52 @@ export default function App() {
         );
     };
 
+    const autoSaveDocument = async (type, url) => {
+        if (currentFile && originalYaml?.id) {
+            const docs = { ...(originalYaml.documents || {}) };
+            docs[type] = url;
+            const targetRecord = {
+                id: originalYaml.id,
+                slug: currentFile.name,
+                documents: docs
+            };
+            supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
+                if(error) console.log("Auto-save doc failed", error);
+                else {
+                    setOriginalYaml(prev => ({...prev, documents: docs}));
+                    console.log("Auto-saved doc to DB");
+                }
+            });
+        }
+    };
+
+    const processDocumentUpload = async (type, base64, mimeType) => {
+        setIsProcessing(true);
+        try {
+            const slugToUse = currentFile?.name || 'new';
+            const timestamp = new Date().getTime();
+            const ext = mimeType === 'application/pdf' ? 'pdf' : 'jpg';
+            const filename = `${type === 'vetCheck' ? 'vetcheck' : 'passport'}-${slugToUse}-${timestamp}.${ext}`;
+            const docUrl = await uploadToStorage('portfolio_media', filename, base64, mimeType);
+            
+            if (type === 'vetCheck') {
+                setVetCheckUri(docUrl);
+                setVetCheckBase64(null);
+                setVetCheckIsNew(false);
+            } else {
+                setPassportUri(docUrl);
+                setPassportBase64(null);
+                setPassportIsNew(false);
+            }
+            await autoSaveDocument(type, docUrl);
+            Alert.alert('Succes', 'Document is direct geüpload naar Supabase!');
+        } catch (err) {
+            Alert.alert('Fout', 'Uploaden document mislukt: ' + err.message);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     const captureDocumentPhoto = async (type) => {
         try {
             const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -587,17 +657,7 @@ export default function App() {
                 base64: true,
             });
             if (!result.canceled) {
-                if (type === 'vetCheck') {
-                    setVetCheckUri(result.assets[0].uri);
-                    setVetCheckBase64(result.assets[0].base64);
-                    setVetCheckMime('image/jpeg');
-                    setVetCheckIsNew(true);
-                } else {
-                    setPassportUri(result.assets[0].uri);
-                    setPassportBase64(result.assets[0].base64);
-                    setPassportMime('image/jpeg');
-                    setPassportIsNew(true);
-                }
+                await processDocumentUpload(type, result.assets[0].base64, 'image/jpeg');
             }
         } catch (e) {
             Alert.alert('Fout', 'Camera kon niet geopend worden.');
@@ -626,20 +686,9 @@ export default function App() {
                         const response = await fetch(uri);
                         const blob = await response.blob();
                         const reader = new FileReader();
-                        reader.onloadend = () => {
+                        reader.onloadend = async () => {
                             const b64 = reader.result.split(',')[1];
-                            if (type === 'vetCheck') {
-                                setVetCheckUri(uri);
-                                setVetCheckBase64(b64);
-                                setVetCheckMime(mimeType);
-                                setVetCheckIsNew(true);
-                            } else {
-                                setPassportUri(uri);
-                                setPassportBase64(b64);
-                                setPassportMime(mimeType);
-                                setPassportIsNew(true);
-                            }
-                            Alert.alert('Succes', 'Bestand is geselecteerd voor upload!');
+                            await processDocumentUpload(type, b64, mimeType);
                         };
                         reader.readAsDataURL(blob);
                     } catch(e) {
