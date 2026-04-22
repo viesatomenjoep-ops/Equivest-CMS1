@@ -420,7 +420,17 @@ export default function App() {
             if (!result.canceled) {
                 setIsProcessing(true);
                 try {
-                    const b64 = result.assets[0].base64;
+                    let b64 = result.assets[0].base64;
+                    if (!b64) {
+                        const response = await fetch(result.assets[0].uri);
+                        const blob = await response.blob();
+                        b64 = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                            reader.readAsDataURL(blob);
+                        });
+                    }
+
                     const slugToUse = currentFile?.name || 'new';
                     const timestamp = new Date().getTime();
                     const imageFilename = `${slugToUse}-${timestamp}.jpg`;
@@ -428,7 +438,7 @@ export default function App() {
                     
                     setImageUri(gUrl);
                     setImageBase64(null);
-                    setImageIsNew(false);
+                    setImageIsNew(true); // Set to true so preview renders imageUri instead of originalYaml.image
                     
                     if (currentFile && originalYaml?.id) {
                         const targetRecord = {
@@ -438,7 +448,10 @@ export default function App() {
                         };
                         supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
                             if(error) console.log("Auto-save image failed", error);
-                            else console.log("Auto-saved main image to DB");
+                            else {
+                                setOriginalYaml(prev => ({...prev, image: gUrl}));
+                                console.log("Auto-saved main image to DB");
+                            }
                         });
                     }
                     Alert.alert('Succes', 'Hoofdfoto direct geüpload!');
@@ -532,12 +545,21 @@ export default function App() {
                     let uploadedUrls = [];
                     for (let i = 0; i < result.assets.length; i++) {
                         const asset = result.assets[i];
-                        if (!asset.base64) continue;
+                        let b64 = asset.base64;
+                        if (!b64) {
+                            const response = await fetch(asset.uri);
+                            const blob = await response.blob();
+                            b64 = await new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                                reader.readAsDataURL(blob);
+                            });
+                        }
                         
                         const slugToUse = currentFile?.name || 'new';
                         const timestamp = new Date().getTime() + i;
                         const imageFilename = `gallery-${slugToUse}-${timestamp}.jpg`;
-                        const gUrl = await uploadToStorage('portfolio_media', imageFilename, asset.base64, 'image/jpeg');
+                        const gUrl = await uploadToStorage('portfolio_media', imageFilename, b64, 'image/jpeg');
                         
                         uploadedUrls.push({
                             uri: gUrl,
@@ -557,7 +579,10 @@ export default function App() {
                             };
                             supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
                                 if(error) console.log("Auto-save gallery failed", error);
-                                else console.log("Auto-saved gallery to DB");
+                                else {
+                                    setOriginalYaml(old => ({...old, gallery: newGallery.map(g => g.url).filter(Boolean)}));
+                                    console.log("Auto-saved gallery to DB");
+                                }
                             });
                         }
                         return newGallery;
