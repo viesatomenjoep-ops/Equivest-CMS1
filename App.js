@@ -444,11 +444,8 @@ export default function App() {
                                 // Update all languages for this horse
                                 const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
                                 if (allLangs) {
-                                    for (const l of allLangs) {
-                                        supabase.from('horses').update({ image: gUrl }).eq('id', l.id).then(({error}) => {
-                                            if(error) console.log("Auto-save image failed for", l.id, error);
-                                        });
-                                    }
+                                    const updatePromises = allLangs.map(l => supabase.from('horses').update({ image: gUrl }).eq('id', l.id));
+                                    await Promise.all(updatePromises);
                                 }
                                 setOriginalYaml(prev => ({...prev, image: gUrl}));
                                 console.log("Auto-saved main image to DB");
@@ -504,9 +501,8 @@ export default function App() {
                                 if (currentFile) {
                                     const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
                                     if (allLangs) {
-                                        for (const l of allLangs) {
-                                            supabase.from('horses').update({ local_video: vUrl }).eq('id', l.id).then(({error}) => {});
-                                        }
+                                        const updatePromises = allLangs.map(l => supabase.from('horses').update({ local_video: vUrl }).eq('id', l.id));
+                                        await Promise.all(updatePromises);
                                     }
                                 }
                                 Alert.alert('Video Klaar', 'De video is succesvol geüpload!');
@@ -570,9 +566,8 @@ export default function App() {
                     if (currentFile) {
                         const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
                         if (allLangs) {
-                            for (const l of allLangs) {
-                                supabase.from('horses').update({ gallery: newUrls }).eq('id', l.id).then(({error}) => {});
-                            }
+                            const updatePromises = allLangs.map(l => supabase.from('horses').update({ gallery: newUrls }).eq('id', l.id));
+                            await Promise.all(updatePromises);
                         }
                         setOriginalYaml(old => ({...old, gallery: newUrls}));
                     }
@@ -598,11 +593,10 @@ export default function App() {
             
             if (currentFile) {
                 const newUrls = next.map(g => g.url).filter(Boolean);
-                supabase.from('horses').select('id').eq('slug', currentFile.name).then(({data}) => {
+                supabase.from('horses').select('id').eq('slug', currentFile.name).then(async ({data}) => {
                     if (data) {
-                        for (const l of data) {
-                            supabase.from('horses').update({ gallery: newUrls }).eq('id', l.id).then(()=>{});
-                        }
+                        const updatePromises = data.map(l => supabase.from('horses').update({ gallery: newUrls }).eq('id', l.id));
+                        await Promise.all(updatePromises);
                     }
                 });
             }
@@ -632,9 +626,8 @@ export default function App() {
             docs[type] = url;
             const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
             if (allLangs) {
-                for (const l of allLangs) {
-                    supabase.from('horses').update({ documents: docs }).eq('id', l.id).then(()=>{});
-                }
+                const updatePromises = allLangs.map(l => supabase.from('horses').update({ documents: docs }).eq('id', l.id));
+                await Promise.all(updatePromises);
             }
             setOriginalYaml(prev => ({...prev, documents: docs}));
         }
