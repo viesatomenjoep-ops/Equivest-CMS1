@@ -200,7 +200,11 @@ const fetchFromGithub = async (path = '') => {
 
 const uploadToStorage = async (bucket, path, base64data, contentType) => {
     try {
-        const binaryString = atob(base64data);
+        let cleanBase64 = base64data;
+        if (cleanBase64.includes(',')) {
+            cleanBase64 = cleanBase64.split(',')[1];
+        }
+        const binaryString = atob(cleanBase64);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
