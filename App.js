@@ -25,8 +25,8 @@ import yaml from 'js-yaml'; // eslint-disable-line
 import { Feather } from '@expo/vector-icons';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://tvdydhmbvuhpbcxsvxmf.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZHlkaG1idnVocGJjeHN2eG1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MDA4ODgsImV4cCI6MjA5MjI3Njg4OH0.d433eTXjtuFKp4YpJKwZuk3nR4SqV_QZKWTiU088dUs';
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const ensureAuthenticated = async () => {
@@ -182,7 +182,7 @@ const UI = {
     }
 };
 
-const GITHUB_TOKEN = ['g','h','p','_','R','W','B','Q','r','l','6','Z','B','7','J','L','J','k','l','O','R','a','i','3','x','l','J','6','U','n','P','n','g','g','3','z','C','b','d','P'].join('');
+const GITHUB_TOKEN = process.env.EXPO_PUBLIC_GITHUB_TOKEN;
 const GITHUB_OWNER = 'viesatomenjoep-ops';
 const GITHUB_REPO = 'equivest-platform';
 const GITHUB_BRANCH = 'main';
@@ -198,25 +198,36 @@ const fetchFromGithub = async (path = '') => {
     return await response.json();
 };
 
-const uploadToStorage = async (bucket, path, base64data, contentType) => {
+const uploadToStorage = async (bucket, path, uri, contentType) => {
     try {
-        let cleanBase64 = base64data;
-        if (cleanBase64.includes(',')) {
-            cleanBase64 = cleanBase64.split(',')[1];
-        }
-        const binaryString = atob(cleanBase64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
+        if (Platform.OS === 'web') {
+            const response = await fetch(uri);
+            const uploadPayload = await response.blob();
+            const { error } = await supabase.storage.from(bucket).upload(path, uploadPayload, {
+                contentType: contentType,
+                upsert: false
+            });
+            if (error) throw new Error(error.message);
+        } else {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token || SUPABASE_KEY;
+            const supabaseUploadUrl = `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`;
+            
+            const response = await FileSystem.uploadAsync(supabaseUploadUrl, uri, {
+                httpMethod: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': contentType,
+                    'x-upsert': 'false'
+                },
+                uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT
+            });
+            
+            if (response.status >= 400) {
+                throw new Error("Upload mislukt met code: " + response.status);
+            }
         }
         
-        const { data, error } = await supabase.storage.from(bucket).upload(path, bytes.buffer, {
-            contentType: contentType,
-            upsert: true
-        });
-
-        if (error) throw new Error(error.message);
-
         const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(path);
         return publicUrlData.publicUrl;
     } catch (e) {
@@ -415,26 +426,16 @@ export default function App() {
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 quality: 0.2,
-                base64: true,
+                base64: false,
             });
             if (!result.canceled) {
                 setIsProcessing(true);
                 try {
-                    let b64 = result.assets[0].base64;
-                    if (!b64) {
-                        const response = await fetch(result.assets[0].uri);
-                        const blob = await response.blob();
-                        b64 = await new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                            reader.readAsDataURL(blob);
-                        });
-                    }
-
+                    const uriToUpload = result.assets[0].uri;
                     const slugToUse = currentFile?.name || 'new';
                     const timestamp = new Date().getTime();
                     const imageFilename = `${slugToUse}-${timestamp}.jpg`;
-                    const gUrl = await uploadToStorage('portfolio_media', imageFilename, b64, 'image/jpeg');
+                    const gUrl = await uploadToStorage('portfolio_media', imageFilename, uriToUpload, 'image/jpeg');
                     
                     setImageUri(gUrl);
                     setImageBase64(null);
@@ -475,44 +476,46 @@ export default function App() {
                 Alert.alert('Video Laden', 'Controle en compressie van video... Dit kan een minuut duren.');
                 setTimeout(async () => {
                     try {
-                        const response = await fetch(uri);
-                        const blob = await response.blob();
+                        let fileSize = 0;
+                        if (Platform.OS !== 'web') {
+                            const info = await FileSystem.getInfoAsync(uri);
+                            fileSize = info.size;
+                        } else {
+                            const response = await fetch(uri);
+                            const blob = await response.blob();
+                            fileSize = blob.size;
+                        }
                         
-                        if (blob.size > 50000000) {
+                        if (fileSize > 50000000) {
                            Alert.alert('Video te groot', 'De video is groter dan de 50MB limiet. Trim of comprimeer deze op je telefoon.');
                            return;
                         }
                         
-                        const reader = new FileReader();
-                        reader.onloadend = async () => {
-                            setIsProcessing(true);
-                            try {
-                                const b64 = reader.result.split(',')[1];
-                                const slugToUse = currentFile?.name || 'new';
-                                const timestamp = new Date().getTime();
-                                const videoFilename = `${slugToUse}-${timestamp}.mp4`;
-                                const vUrl = await uploadToStorage('portfolio_media', videoFilename, b64, 'video/mp4');
-                                
-                                setVideoBase64(null);
-                                setVideoUri(vUrl);
-                                setVideoIsNew(false);
-                                
-                                // Auto-save
-                                if (currentFile) {
-                                    const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
-                                    if (allLangs) {
-                                        const updatePromises = allLangs.map(l => supabase.from('horses').update({ local_video: vUrl }).eq('id', l.id));
-                                        await Promise.all(updatePromises);
-                                    }
+                        setIsProcessing(true);
+                        try {
+                            const slugToUse = currentFile?.name || 'new';
+                            const timestamp = new Date().getTime();
+                            const videoFilename = `${slugToUse}-${timestamp}.mp4`;
+                            const vUrl = await uploadToStorage('portfolio_media', videoFilename, uri, 'video/mp4');
+                            
+                            setVideoBase64(null);
+                            setVideoUri(vUrl);
+                            setVideoIsNew(false);
+                            
+                            // Auto-save
+                            if (currentFile) {
+                                const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
+                                if (allLangs) {
+                                    const updatePromises = allLangs.map(l => supabase.from('horses').update({ local_video: vUrl }).eq('id', l.id));
+                                    await Promise.all(updatePromises);
                                 }
-                                Alert.alert('Video Klaar', 'De video is succesvol geüpload!');
-                            } catch(err) {
-                                Alert.alert('Fout', 'Uploaden video mislukt: ' + err.message);
-                            } finally {
-                                setIsProcessing(false);
                             }
-                        };
-                        reader.readAsDataURL(blob);
+                            Alert.alert('Video Klaar', 'De video is succesvol geüpload!');
+                        } catch(err) {
+                            Alert.alert('Fout', 'Uploaden video mislukt: ' + err.message);
+                        } finally {
+                            setIsProcessing(false);
+                        }
                     } catch(e) {
                         Alert.alert('Lees Fout', 'Kon video niet verwerken.');
                     }
@@ -530,7 +533,7 @@ export default function App() {
                 allowsMultipleSelection: true,
                 selectionLimit: 10,
                 quality: 0.2,
-                base64: true,
+                base64: false,
             });
             if (!result.canceled) {
                 setIsProcessing(true);
@@ -538,21 +541,12 @@ export default function App() {
                     let uploadedUrls = [];
                     for (let i = 0; i < result.assets.length; i++) {
                         const asset = result.assets[i];
-                        let b64 = asset.base64;
-                        if (!b64) {
-                            const response = await fetch(asset.uri);
-                            const blob = await response.blob();
-                            b64 = await new Promise((resolve) => {
-                                const reader = new FileReader();
-                                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                                reader.readAsDataURL(blob);
-                            });
-                        }
+                        const uriToUpload = asset.uri;
                         
                         const slugToUse = currentFile?.name || 'new';
                         const timestamp = new Date().getTime() + i;
                         const imageFilename = `gallery-${slugToUse}-${timestamp}.jpg`;
-                        const gUrl = await uploadToStorage('portfolio_media', imageFilename, b64, 'image/jpeg');
+                        const gUrl = await uploadToStorage('portfolio_media', imageFilename, uriToUpload, 'image/jpeg');
                         
                         uploadedUrls.push({
                             uri: gUrl,
@@ -634,14 +628,14 @@ export default function App() {
         }
     };
 
-    const processDocumentUpload = async (type, base64, mimeType) => {
+    const processDocumentUpload = async (type, uri, mimeType) => {
         setIsProcessing(true);
         try {
             const slugToUse = currentFile?.name || 'new';
             const timestamp = new Date().getTime();
             const ext = mimeType === 'application/pdf' ? 'pdf' : 'jpg';
             const filename = `${type === 'vetCheck' ? 'vetcheck' : 'passport'}-${slugToUse}-${timestamp}.${ext}`;
-            const docUrl = await uploadToStorage('portfolio_media', filename, base64, mimeType);
+            const docUrl = await uploadToStorage('portfolio_media', filename, uri, mimeType);
             
             if (type === 'vetCheck') {
                 setVetCheckUri(docUrl);
@@ -672,10 +666,11 @@ export default function App() {
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 quality: 0.5,
-                base64: true,
+                base64: false,
             });
             if (!result.canceled) {
-                await processDocumentUpload(type, result.assets[0].base64, 'image/jpeg');
+                const uriToUpload = result.assets[0].uri;
+                await processDocumentUpload(type, uriToUpload, 'image/jpeg');
             }
         } catch (e) {
             Alert.alert('Fout', 'Camera kon niet geopend worden.');
@@ -701,14 +696,7 @@ export default function App() {
                 Alert.alert('Bestand Laden', 'Bestand inlezen... Dit kan even duren.');
                 setTimeout(async () => {
                     try {
-                        const response = await fetch(uri);
-                        const blob = await response.blob();
-                        const reader = new FileReader();
-                        reader.onloadend = async () => {
-                            const b64 = reader.result.split(',')[1];
-                            await processDocumentUpload(type, b64, mimeType);
-                        };
-                        reader.readAsDataURL(blob);
+                        await processDocumentUpload(type, uri, mimeType);
                     } catch(e) {
                         Alert.alert('Fout', 'Kon bestand niet verwerken.');
                     }
@@ -731,30 +719,20 @@ export default function App() {
 
             const slug = currentFile ? currentFile.name : title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
-            if (imageIsNew && imageBase64) {
-                const timestamp = new Date().getTime();
-                const imageFilename = `${slug}-${timestamp}.jpg`;
-                finalImageUrl = await uploadToStorage('portfolio_media', imageFilename, imageBase64, 'image/jpeg');
+            if (imageIsNew && imageUri) {
+                finalImageUrl = imageUri;
             }
 
-            if (videoIsNew && videoBase64) {
-                const timestamp = new Date().getTime();
-                const videoFilename = `${slug}-${timestamp}.mp4`;
-                finalVideoUrl = await uploadToStorage('portfolio_media', videoFilename, videoBase64, 'video/mp4');
+            if (videoIsNew && videoUri) {
+                finalVideoUrl = videoUri;
             }
 
-            if (vetCheckIsNew && vetCheckBase64) {
-                const timestamp = new Date().getTime();
-                const ext = vetCheckMime === 'application/pdf' ? 'pdf' : 'jpg';
-                const filename = `vetcheck-${slug}-${timestamp}.${ext}`;
-                finalVetCheckUrl = await uploadToStorage('portfolio_media', filename, vetCheckBase64, vetCheckMime || 'application/octet-stream');
+            if (vetCheckIsNew && vetCheckUri) {
+                finalVetCheckUrl = vetCheckUri;
             }
 
-            if (passportIsNew && passportBase64) {
-                const timestamp = new Date().getTime();
-                const ext = passportMime === 'application/pdf' ? 'pdf' : 'jpg';
-                const filename = `passport-${slug}-${timestamp}.${ext}`;
-                finalPassportUrl = await uploadToStorage('portfolio_media', filename, passportBase64, passportMime || 'application/octet-stream');
+            if (passportIsNew && passportUri) {
+                finalPassportUrl = passportUri;
             }
 
             let finalGalleryList = [];
@@ -809,7 +787,7 @@ export default function App() {
                     if (existingData) {
                         rowId = existingData.id;
                         if (lang !== portfolioLang) {
-                            rowTitle = existingData.title || title;
+                            rowTitle = title; // Sync horse name across all languages
                             rowDesc = existingData.description || description;
                             rowBody = existingData.body || bodyContent;
                         }
