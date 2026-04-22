@@ -440,20 +440,19 @@ export default function App() {
                     setImageBase64(null);
                     setImageIsNew(true); // Set to true so preview renders imageUri instead of originalYaml.image
                     
-                    if (currentFile && originalYaml?.id) {
-                        const targetRecord = {
-                            id: originalYaml.id,
-                            slug: currentFile.name,
-                            image: gUrl
-                        };
-                        supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
-                            if(error) console.log("Auto-save image failed", error);
-                            else {
+                            if (currentFile) {
+                                // Update all languages for this horse
+                                const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
+                                if (allLangs) {
+                                    for (const l of allLangs) {
+                                        supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, image: gUrl }, { onConflict: 'id' }).then(({error}) => {
+                                            if(error) console.log("Auto-save image failed for", l.id, error);
+                                        });
+                                    }
+                                }
                                 setOriginalYaml(prev => ({...prev, image: gUrl}));
                                 console.log("Auto-saved main image to DB");
                             }
-                        });
-                    }
                     Alert.alert('Succes', 'Hoofdfoto direct geüpload!');
                 } catch(err) {
                     Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
@@ -502,15 +501,13 @@ export default function App() {
                                 setVideoIsNew(false);
                                 
                                 // Auto-save
-                                if (currentFile && originalYaml?.id) {
-                                    supabase.from('horses').upsert({
-                                        id: originalYaml.id,
-                                        slug: currentFile.name,
-                                        local_video: vUrl
-                                    }, { onConflict: 'id' }).then(({error}) => {
-                                        if(error) console.log("Auto-save video failed", error);
-                                        else console.log("Auto-saved video to DB");
-                                    });
+                                if (currentFile) {
+                                    const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
+                                    if (allLangs) {
+                                        for (const l of allLangs) {
+                                            supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, local_video: vUrl }, { onConflict: 'id' }).then(({error}) => {});
+                                        }
+                                    }
                                 }
                                 Alert.alert('Video Klaar', 'De video is succesvol geüpload!');
                             } catch(err) {
@@ -571,19 +568,15 @@ export default function App() {
                     
                     setGallery(prev => {
                         const newGallery = [...prev, ...uploadedUrls].slice(0, 20); // allow up to 20 images
-                        if (currentFile && originalYaml?.id) {
-                            const targetRecord = {
-                                id: originalYaml.id,
-                                slug: currentFile.name,
-                                gallery: newGallery.map(g => g.url).filter(Boolean)
-                            };
-                            supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
-                                if(error) console.log("Auto-save gallery failed", error);
-                                else {
-                                    setOriginalYaml(old => ({...old, gallery: newGallery.map(g => g.url).filter(Boolean)}));
-                                    console.log("Auto-saved gallery to DB");
+                        if (currentFile) {
+                            const newUrls = newGallery.map(g => g.url).filter(Boolean);
+                            const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
+                            if (allLangs) {
+                                for (const l of allLangs) {
+                                    supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, gallery: newUrls }, { onConflict: 'id' }).then(({error}) => {});
                                 }
-                            });
+                            }
+                            setOriginalYaml(old => ({...old, gallery: newUrls}));
                         }
                         return newGallery;
                     });
@@ -602,16 +595,14 @@ export default function App() {
             const next = [...prev];
             next.splice(index, 1);
             
-            // Auto-save to DB if this is an existing horse
-            if (currentFile && originalYaml?.id) {
-                const targetRecord = {
-                    id: originalYaml.id,
-                    slug: currentFile.name,
-                    gallery: next.map(g => g.url).filter(Boolean)
-                };
-                supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
-                    if(error) console.log("Auto-save gallery failed", error);
-                    else console.log("Auto-saved gallery to DB");
+            if (currentFile) {
+                const newUrls = next.map(g => g.url).filter(Boolean);
+                supabase.from('horses').select('id').eq('slug', currentFile.name).then(({data}) => {
+                    if (data) {
+                        for (const l of data) {
+                            supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, gallery: newUrls }, { onConflict: 'id' }).then(()=>{});
+                        }
+                    }
                 });
             }
             return next;
@@ -635,21 +626,16 @@ export default function App() {
     };
 
     const autoSaveDocument = async (type, url) => {
-        if (currentFile && originalYaml?.id) {
+        if (currentFile) {
             const docs = { ...(originalYaml.documents || {}) };
             docs[type] = url;
-            const targetRecord = {
-                id: originalYaml.id,
-                slug: currentFile.name,
-                documents: docs
-            };
-            supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
-                if(error) console.log("Auto-save doc failed", error);
-                else {
-                    setOriginalYaml(prev => ({...prev, documents: docs}));
-                    console.log("Auto-saved doc to DB");
+            const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
+            if (allLangs) {
+                for (const l of allLangs) {
+                    supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, documents: docs }, { onConflict: 'id' }).then(()=>{});
                 }
-            });
+            }
+            setOriginalYaml(prev => ({...prev, documents: docs}));
         }
     };
 
@@ -790,8 +776,7 @@ export default function App() {
             }
 
             const targetRecord = {
-                ...(originalYaml.id ? { id: originalYaml.id } : {}),
-                lang: selectedLang || 'en', // Keep lang explicit
+                lang: selectedLang || 'en',
                 slug: slug,
                 title: title,
                 description: description,
@@ -822,24 +807,30 @@ export default function App() {
                 let rowTitle = title;
                 let rowDesc = description;
                 let rowBody = bodyContent;
+                let rowId = null;
                 
-                if (lang !== portfolioLang && currentFile) {
-                    const { data: existingData } = await supabase.from('horses').select('*').eq('slug', slug).eq('lang', lang).single();
+                if (currentFile || originalYaml?.id) {
+                    const { data: existingData } = await supabase.from('horses').select('id,title,description,body').eq('slug', slug).eq('lang', lang).single();
                     if (existingData) {
-                        rowTitle = existingData.title || title;
-                        rowDesc = existingData.description || description;
-                        rowBody = existingData.body || bodyContent;
+                        rowId = existingData.id;
+                        if (lang !== portfolioLang) {
+                            rowTitle = existingData.title || title;
+                            rowDesc = existingData.description || description;
+                            rowBody = existingData.body || bodyContent;
+                        }
                     }
                 }
 
-                const { error } = await supabase.from('horses').upsert({
-                   ...targetRecord,
-                   lang: lang,
-                   title: rowTitle,
-                   description: rowDesc,
-                   body: rowBody 
-                }, { onConflict: 'lang,slug' });
-                
+                const payload = {
+                    ...targetRecord,
+                    lang: lang,
+                    title: rowTitle,
+                    description: rowDesc,
+                    body: rowBody 
+                };
+                if (rowId) payload.id = rowId;
+
+                const { error } = await supabase.from('horses').upsert(payload, { onConflict: 'id' });
                 if (error) throw new Error(error.message);
             }
 
