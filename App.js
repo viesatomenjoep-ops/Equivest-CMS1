@@ -200,6 +200,8 @@ const fetchFromGithub = async (path = '') => {
 
 const uploadToStorage = async (bucket, path, uri, contentType) => {
     try {
+        await ensureAuthenticated();
+        
         if (Platform.OS === 'web') {
             const response = await fetch(uri);
             const uploadPayload = await response.blob();
