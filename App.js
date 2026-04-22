@@ -411,36 +411,48 @@ export default function App() {
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 quality: 0.2,
-                base64: true,
             });
             if (!result.canceled) {
                 setIsProcessing(true);
                 try {
-                    const slugToUse = currentFile?.name || 'new';
-                    const timestamp = new Date().getTime();
-                    const imageFilename = `${slugToUse}-${timestamp}.jpg`;
-                    const gUrl = await uploadToStorage('portfolio_media', imageFilename, result.assets[0].base64, 'image/jpeg');
-                    
-                    setImageUri(gUrl);
-                    setImageBase64(null);
-                    setImageIsNew(false);
-                    
-                    // Auto-save to DB if this is an existing horse
-                    if (currentFile && originalYaml?.id) {
-                        const targetRecord = {
-                            id: originalYaml.id,
-                            slug: currentFile.name,
-                            image: gUrl
-                        };
-                        supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
-                            if(error) console.log("Auto-save image failed", error);
-                            else console.log("Auto-saved main image to DB");
-                        });
-                    }
+                    const uri = result.assets[0].uri;
+                    const response = await fetch(uri);
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                        try {
+                            const b64 = reader.result.split(',')[1];
+                            const slugToUse = currentFile?.name || 'new';
+                            const timestamp = new Date().getTime();
+                            const imageFilename = `${slugToUse}-${timestamp}.jpg`;
+                            const gUrl = await uploadToStorage('portfolio_media', imageFilename, b64, 'image/jpeg');
+                            
+                            setImageUri(gUrl);
+                            setImageBase64(null);
+                            setImageIsNew(false);
+                            
+                            if (currentFile && originalYaml?.id) {
+                                const targetRecord = {
+                                    id: originalYaml.id,
+                                    slug: currentFile.name,
+                                    image: gUrl
+                                };
+                                supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
+                                    if(error) console.log("Auto-save image failed", error);
+                                    else console.log("Auto-saved main image to DB");
+                                });
+                            }
+                            Alert.alert('Succes', 'Hoofdfoto direct geüpload!');
+                        } catch(err) {
+                            Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
+                        } finally {
+                            setIsProcessing(false);
+                        }
+                    };
+                    reader.readAsDataURL(blob);
                 } catch(err) {
-                    Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
-                } finally {
                     setIsProcessing(false);
+                    Alert.alert('Fout', 'Lezen van bestand mislukt: ' + err.message);
                 }
             }
         } catch (e) {
@@ -518,43 +530,55 @@ export default function App() {
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 quality: 0.2,
-                base64: true,
             });
             if (!result.canceled) {
                 setIsProcessing(true);
                 try {
-                    const slugToUse = currentFile?.name || 'new';
-                    const timestamp = new Date().getTime();
-                    const imageFilename = `gallery-${slugToUse}-${timestamp}.jpg`;
-                    const gUrl = await uploadToStorage('portfolio_media', imageFilename, result.assets[0].base64, 'image/jpeg');
-                    
-                    const newAsset = {
-                        uri: gUrl,
-                        base64: null,
-                        isNew: false,
-                        url: gUrl
-                    };
-                    
-                    setGallery(prev => {
-                        const newGallery = [...prev, newAsset].slice(0, 10);
-                        // Auto-save to DB if this is an existing horse
-                        if (currentFile && originalYaml?.id) {
-                            const targetRecord = {
-                                id: originalYaml.id,
-                                slug: currentFile.name,
-                                gallery: newGallery.map(g => g.url).filter(Boolean)
+                    const uri = result.assets[0].uri;
+                    const response = await fetch(uri);
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                        try {
+                            const b64 = reader.result.split(',')[1];
+                            const slugToUse = currentFile?.name || 'new';
+                            const timestamp = new Date().getTime();
+                            const imageFilename = `gallery-${slugToUse}-${timestamp}.jpg`;
+                            const gUrl = await uploadToStorage('portfolio_media', imageFilename, b64, 'image/jpeg');
+                            
+                            const newAsset = {
+                                uri: gUrl,
+                                base64: null,
+                                isNew: false,
+                                url: gUrl
                             };
-                            supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
-                                if(error) console.log("Auto-save gallery failed", error);
-                                else console.log("Auto-saved gallery to DB");
+                            
+                            setGallery(prev => {
+                                const newGallery = [...prev, newAsset].slice(0, 10);
+                                if (currentFile && originalYaml?.id) {
+                                    const targetRecord = {
+                                        id: originalYaml.id,
+                                        slug: currentFile.name,
+                                        gallery: newGallery.map(g => g.url).filter(Boolean)
+                                    };
+                                    supabase.from('horses').upsert(targetRecord, { onConflict: 'id' }).then(({error}) => {
+                                        if(error) console.log("Auto-save gallery failed", error);
+                                        else console.log("Auto-saved gallery to DB");
+                                    });
+                                }
+                                return newGallery;
                             });
+                            Alert.alert('Succes', 'Galerij afbeelding geüpload!');
+                        } catch(err) {
+                            Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
+                        } finally {
+                            setIsProcessing(false);
                         }
-                        return newGallery;
-                    });
+                    };
+                    reader.readAsDataURL(blob);
                 } catch(err) {
-                    Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
-                } finally {
                     setIsProcessing(false);
+                    Alert.alert('Fout', 'Lezen van bestand mislukt: ' + err.message);
                 }
             }
         } catch (e) { }
