@@ -565,21 +565,22 @@ export default function App() {
                             url: gUrl
                         });
                     }
+                    const newUrls = [...gallery, ...uploadedUrls].slice(0, 20).map(g => g.url).filter(Boolean);
+                    
+                    if (currentFile) {
+                        const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
+                        if (allLangs) {
+                            for (const l of allLangs) {
+                                supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, gallery: newUrls }, { onConflict: 'id' }).then(({error}) => {});
+                            }
+                        }
+                        setOriginalYaml(old => ({...old, gallery: newUrls}));
+                    }
                     
                     setGallery(prev => {
-                        const newGallery = [...prev, ...uploadedUrls].slice(0, 20); // allow up to 20 images
-                        if (currentFile) {
-                            const newUrls = newGallery.map(g => g.url).filter(Boolean);
-                            const { data: allLangs } = await supabase.from('horses').select('id').eq('slug', currentFile.name);
-                            if (allLangs) {
-                                for (const l of allLangs) {
-                                    supabase.from('horses').upsert({ id: l.id, slug: currentFile.name, gallery: newUrls }, { onConflict: 'id' }).then(({error}) => {});
-                                }
-                            }
-                            setOriginalYaml(old => ({...old, gallery: newUrls}));
-                        }
-                        return newGallery;
+                        return [...prev, ...uploadedUrls].slice(0, 20); // allow up to 20 images
                     });
+                    
                     Alert.alert('Succes', `${uploadedUrls.length} Galerij afbeelding(en) geüpload!`);
                 } catch(err) {
                     Alert.alert('Fout', 'Uploaden mislukt: ' + err.message);
