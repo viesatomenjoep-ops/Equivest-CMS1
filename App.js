@@ -833,7 +833,7 @@ export default function App() {
                 };
                 if (sha) body.sha = sha;
 
-                await fetch(url, {
+                const putRes = await fetch(url, {
                     method: 'PUT',
                     headers: { 
                         Authorization: `Bearer ${GITHUB_TOKEN}`,
@@ -841,8 +841,19 @@ export default function App() {
                     },
                     body: JSON.stringify(body)
                 });
+                
+                if (!putRes.ok) {
+                    const errData = await putRes.json().catch(() => ({}));
+                    console.log('GitHub trigger failed with status:', putRes.status, errData);
+                    Alert.alert('⚠️ Website Update Mislukt', `De data is opgeslagen in de database, maar het signaal naar Vercel kon niet verstuurd worden (Code: ${putRes.status}). De live website is mogelijk niet up-to-date.`);
+                    setIsProcessing(false);
+                    return;
+                }
             } catch (e) {
                 console.log('GitHub trigger failed', e);
+                Alert.alert('⚠️ Website Update Mislukt', 'De data is opgeslagen, maar de automatische Vercel update is mislukt door een netwerkfout.');
+                setIsProcessing(false);
+                return;
             }
 
             Alert.alert('✅ Succes', `Actie afgerond. Vercel is nu aan het bouwen, over ca. 60 seconden staat het live!`);
